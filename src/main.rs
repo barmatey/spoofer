@@ -33,7 +33,7 @@ impl BinanceConnector {
         Self {
             symbol: symbol.to_lowercase(),
             reconnect_attempts: 0,
-            max_reconnect_attempts: 5,
+            max_reconnect_attempts: 2,
         }
     }
 
@@ -73,41 +73,6 @@ impl BinanceConnector {
             return;
         }
 
-        // Пробуем альтернативные форматы
-        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(text) {
-            // Формат с полем "data" (combined streams)
-            if let Some(data_value) = json_value.get("data") {
-                if let Ok(trade) = serde_json::from_value::<TradeMessage>(data_value.clone()) {
-                    self.print_trade(&trade);
-                    return;
-                }
-            }
-
-            // Прямой парсинг полей
-            if let (Some(s), Some(p), Some(q), Some(m), Some(t)) = (
-                json_value.get("s").and_then(|v| v.as_str()),
-                json_value.get("p").and_then(|v| v.as_str()),
-                json_value.get("q").and_then(|v| v.as_str()),
-                json_value.get("m").and_then(|v| v.as_bool()),
-                json_value.get("T").and_then(|v| v.as_u64()),
-            ) {
-                let trade = TradeMessage {
-                    e: "trade".to_string(),
-                    event_time: 0,
-                    s: s.to_string(),
-                    t: 0,
-                    p: p.to_string(),
-                    q: q.to_string(),
-                    b: 0,
-                    a: 0,
-                    trade_time: t,
-                    m: m,
-                    ignore: false,
-                };
-                self.print_trade(&trade);
-                return;
-            }
-        }
 
         eprintln!("❌ Не удалось распарсить сообщение: {}", text);
     }
