@@ -28,8 +28,8 @@ struct DepthUpdateMessage {
 
 #[derive(Debug, Clone)]
 struct OrderBook {
-    bids: HashMap<String, String>, // price -> quantity
-    asks: HashMap<String, String>, // price -> quantity
+    bids: HashMap<Price, Quantity>, // price -> quantity
+    asks: HashMap<Price, Quantity>, // price -> quantity
 }
 
 impl OrderBook {
