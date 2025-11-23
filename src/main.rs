@@ -3,29 +3,113 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{StreamExt, SinkExt};
 use url::Url;
 use tokio::time::{sleep, Duration};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct TradeMessage {
+struct DepthUpdateMessage {
     e: String,  // Event type
     #[serde(rename = "E")]
     event_time: u64,     // Event time
     s: String,  // Symbol
-    t: u64,     // Trade ID
-    p: String,  // Price
-    q: String,  // Quantity
-    b: u64,     // Buyer order ID
-    a: u64,     // Seller order ID
-    #[serde(rename = "T")]
-    trade_time: u64,     // Trade time
-    m: bool,    // Is the buyer the market maker?
-    #[serde(rename = "M")]
-    ignore: bool,    // Ignore
+    U: u64,     // First update ID in event
+    u: u64,     // Final update ID in event
+    b: Vec<[String; 2]>, // Bids to update [price, quantity]
+    a: Vec<[String; 2]>, // Asks to update [price, quantity]
+}
+
+#[derive(Debug, Clone)]
+struct OrderBook {
+    bids: HashMap<String, String>, // price -> quantity
+    asks: HashMap<String, String>, // price -> quantity
+}
+
+impl OrderBook {
+    fn new() -> Self {
+        Self {
+            bids: HashMap::new(),
+            asks: HashMap::new(),
+        }
+    }
+
+    fn update(&mut self, bids: &Vec<[String; 2]>, asks: &Vec<[String; 2]>) -> Vec<OrderEvent> {
+        let mut events = Vec::new();
+
+        // Process bids
+        for bid in bids {
+            let price = &bid[0];
+            let quantity = &bid[1];
+
+            if quantity == "0.00000000" || quantity == "0.00" {
+                // Order removal
+                if self.bids.remove(price).is_some() {
+                    events.push(OrderEvent::Canceled {
+                        side: "BID".to_string(),
+                        price: price.clone(),
+                        quantity: "0".to_string(), // Quantity is 0 for cancellations
+                    });
+                }
+            } else {
+                // Order update/addition
+                let old_quantity = self.bids.insert(price.clone(), quantity.clone());
+                events.push(OrderEvent::Updated {
+                    side: "BID".to_string(),
+                    price: price.clone(),
+                    old_quantity: old_quantity.unwrap_or_else(|| "0".to_string()),
+                    new_quantity: quantity.clone(),
+                });
+            }
+        }
+
+        // Process asks
+        for ask in asks {
+            let price = &ask[0];
+            let quantity = &ask[1];
+
+            if quantity == "0.00000000" || quantity == "0.00" {
+                // Order removal
+                if self.asks.remove(price).is_some() {
+                    events.push(OrderEvent::Canceled {
+                        side: "ASK".to_string(),
+                        price: price.clone(),
+                        quantity: "0".to_string(),
+                    });
+                }
+            } else {
+                // Order update/addition
+                let old_quantity = self.asks.insert(price.clone(), quantity.clone());
+                events.push(OrderEvent::Updated {
+                    side: "ASK".to_string(),
+                    price: price.clone(),
+                    old_quantity: old_quantity.unwrap_or_else(|| "0".to_string()),
+                    new_quantity: quantity.clone(),
+                });
+            }
+        }
+
+        events
+    }
+}
+
+#[derive(Debug)]
+enum OrderEvent {
+    Updated {
+        side: String,
+        price: String,
+        old_quantity: String,
+        new_quantity: String,
+    },
+    Canceled {
+        side: String,
+        price: String,
+        quantity: String,
+    },
 }
 
 struct BinanceConnector {
     symbol: String,
     reconnect_attempts: u32,
     max_reconnect_attempts: u32,
+    order_book: OrderBook,
 }
 
 impl BinanceConnector {
@@ -34,6 +118,7 @@ impl BinanceConnector {
             symbol: symbol.to_lowercase(),
             reconnect_attempts: 0,
             max_reconnect_attempts: 2,
+            order_book: OrderBook::new(),
         }
     }
 
@@ -50,7 +135,7 @@ impl BinanceConnector {
         Box<dyn std::error::Error>
     > {
         let stream_url = format!(
-            "wss://stream.binance.com:9443/ws/{}@trade",
+            "wss://stream.binance.com:9443/ws/{}@depth@100ms",
             self.symbol
         );
 
@@ -61,54 +146,100 @@ impl BinanceConnector {
 
         println!("✅ Подключение установлено! HTTP статус: {}", response.status());
         println!("🎯 Торговая пара: {}", self.symbol.to_uppercase());
-        println!("{}", "=".repeat(60));
+        println!("📊 Режим: Level 2 Order Book (обновления каждые 100мс)");
+        println!("{}", "=".repeat(80));
 
         Ok(ws_stream.split())
     }
 
-    fn handle_trade_message(&self, text: &str) {
-        // Пробуем распарсить как прямой trade message
-        if let Ok(trade) = serde_json::from_str::<TradeMessage>(text) {
-            self.print_trade(&trade);
-            return;
+    fn handle_depth_message(&mut self, text: &str) {
+        match serde_json::from_str::<DepthUpdateMessage>(text) {
+            Ok(depth_update) => {
+                let events = self.order_book.update(&depth_update.b, &depth_update.a);
+                self.print_order_events(&events, &depth_update);
+            }
+            Err(e) => {
+                eprintln!("❌ Не удалось распарсить сообщение: {}\nОшибка: {}", text, e);
+            }
         }
-
-
-        eprintln!("❌ Не удалось распарсить сообщение: {}", text);
     }
 
-    fn print_trade(&self, trade: &TradeMessage) {
-        let side = if trade.m { "SELL" } else { "BUY" };
-        let side_color = if trade.m { "\x1b[31m" } else { "\x1b[32m" };
-        let reset_color = "\x1b[0m";
-
-        let timestamp = chrono::DateTime::from_timestamp_millis(trade.trade_time as i64)
+    fn print_order_events(&self, events: &[OrderEvent], depth_update: &DepthUpdateMessage) {
+        let timestamp = chrono::DateTime::from_timestamp_millis(depth_update.event_time as i64)
             .map(|dt| dt.format("%H:%M:%S%.3f").to_string())
-            .unwrap_or_else(|| trade.trade_time.to_string());
+            .unwrap_or_else(|| depth_update.event_time.to_string());
 
-        println!(
-            "{} {}{:8}{} {:10} {:14} x {:14}",
-            timestamp,
-            side_color,
-            side,
-            reset_color,
-            trade.s.to_uppercase(),
-            trade.q,
-            trade.p
-        );
+        for event in events {
+            match event {
+                OrderEvent::Updated { side, price, old_quantity, new_quantity } => {
+                    let side_color = if side == "BID" { "\x1b[32m" } else { "\x1b[31m" };
+                    let reset_color = "\x1b[0m";
+
+                    let action = if old_quantity == "0" {
+                        "CREATED"
+                    } else {
+                        "UPDATED"
+                    };
+
+                    println!(
+                        "{} {}{:8}{} {:10} {:14} | {:8} -> {:8}",
+                        timestamp,
+                        side_color,
+                        side,
+                        reset_color,
+                        action,
+                        price,
+                        old_quantity,
+                        new_quantity
+                    );
+                }
+                OrderEvent::Canceled { side, price, .. } => {
+                    let side_color = if side == "BID" { "\x1b[32m" } else { "\x1b[31m" };
+                    let reset_color = "\x1b[0m";
+
+                    println!(
+                        "{} {}{:8}{} {:10} {:14} | {}",
+                        timestamp,
+                        side_color,
+                        side,
+                        reset_color,
+                        "CANCELED",
+                        price,
+                        "REMOVED".to_string()
+                    );
+                }
+            }
+        }
+
+        // Показываем статистику по стакану
+        if !events.is_empty() {
+            println!(
+                "📊 Стакан: {} bid / {} ask | Update ID: {}",
+                self.order_book.bids.len(),
+                self.order_book.asks.len(),
+                depth_update.u
+            );
+            println!("{}", "-".repeat(80));
+        }
     }
 
     async fn run_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let (mut write, mut read) = self.connect_websocket().await?;
 
-        println!("📊 Ожидаем трейды...\n");
+        println!("📊 Ожидаем обновления стакана заявок...\n");
+        println!("Легенда:");
+        println!("  🟢 BID CREATED - Новая заявка на покупку");
+        println!("  🔴 ASK CREATED - Новая заявка на продажу");
+        println!("  🟡 BID/ASK UPDATED - Изменение объема существующей заявки");
+        println!("  ⚫ BID/ASK CANCELED - Отмена заявки");
+        println!("{}", "=".repeat(80));
 
         loop {
             tokio::select! {
                 message = read.next() => {
                     match message {
                         Some(Ok(Message::Text(text))) => {
-                            self.handle_trade_message(&text);
+                            self.handle_depth_message(&text);
                         }
                         Some(Ok(Message::Ping(data))) => {
                             // Отвечаем на PING для поддержания соединения
@@ -129,7 +260,12 @@ impl BinanceConnector {
                             // Игнорируем PONG
                         }
                         Some(Ok(Message::Binary(data))) => {
-                            println!("📦 Получено бинарное сообщение: {} байт", data.len());
+                            // Пробуем декодировать бинарные данные как текст
+                            if let Ok(text) = String::from_utf8(data) {
+                                self.handle_depth_message(&text);
+                            } else {
+                                println!("📦 Получено бинарное сообщение");
+                            }
                         }
                         Some(Err(e)) => {
                             eprintln!("❌ Ошибка чтения сообщения: {}", e);
@@ -183,7 +319,8 @@ impl BinanceConnector {
 
 #[tokio::main]
 async fn main() {
-    println!("🚀 Binance WebSocket Trade Connector (Асинхронная версия)");
+    println!("🚀 Binance WebSocket Order Book Connector (Level 2)");
+    println!("📊 Отслеживание созданных, измененных и отмененных заявок");
     println!("Поддерживаемые пары: btcusdt, ethusdt, adausdt, etc.");
     println!("Для выхода нажмите Ctrl+C\n");
 
