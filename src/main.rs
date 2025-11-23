@@ -5,17 +5,25 @@ use url::Url;
 use tokio::time::{sleep, Duration};
 use std::collections::HashMap;
 
+type Price = String;
+type Quantity = String;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
-    e: String,  // Event type
+    #[serde(rename = "e")]
+    event_type: String,
     #[serde(rename = "E")]
-    event_time: u64,     // Event time
-    s: String,  // Symbol
+    event_time: u64,
+    #[serde(rename= "s")]
+    symbol: String,
     #[serde(rename = "U")]
-    first_update_id: u64,     // First update ID in event
-    u: u64,     // Final update ID in event
-    b: Vec<[String; 2]>, // Bids to update [price, quantity]
-    a: Vec<[String; 2]>, // Asks to update [price, quantity]
+    first_update_id: u64,
+    #[serde(rename = "u")]
+    final_update_id: u64,
+    #[serde(rename = "b")]
+    bids_to_update: Vec<(Price, Quantity)>,
+    #[serde(rename = "a")]
+    asks_to_update: Vec<(Price, Quantity)>,
 }
 
 #[derive(Debug, Clone)]
@@ -32,13 +40,13 @@ impl OrderBook {
         }
     }
 
-    fn update(&mut self, bids: &Vec<[String; 2]>, asks: &Vec<[String; 2]>) -> Vec<OrderEvent> {
+    fn update(&mut self, bids: &Vec<(Price, Quantity)>, asks: &Vec<(Price, Quantity)>) -> Vec<OrderEvent> {
         let mut events = Vec::new();
 
         // Process bids
         for bid in bids {
-            let price = &bid[0];
-            let quantity = &bid[1];
+            let price = &bid.0;
+            let quantity = &bid.1;
 
             if quantity == "0.00000000" || quantity == "0.00" {
                 // Order removal
@@ -63,8 +71,8 @@ impl OrderBook {
 
         // Process asks
         for ask in asks {
-            let price = &ask[0];
-            let quantity = &ask[1];
+            let price = &ask.0;
+            let quantity = &ask.1;
 
             if quantity == "0.00000000" || quantity == "0.00" {
                 // Order removal
@@ -156,7 +164,7 @@ impl BinanceConnector {
     fn handle_depth_message(&mut self, text: &str) {
         match serde_json::from_str::<DepthUpdateMessage>(text) {
             Ok(depth_update) => {
-                let events = self.order_book.update(&depth_update.b, &depth_update.a);
+                let events = self.order_book.update(&depth_update.bids_to_update, &depth_update.asks_to_update);
                 self.print_order_events(&events, &depth_update);
             }
             Err(e) => {
@@ -218,7 +226,7 @@ impl BinanceConnector {
                 "📊 Стакан: {} bid / {} ask | Update ID: {}",
                 self.order_book.bids.len(),
                 self.order_book.asks.len(),
-                depth_update.u
+                depth_update.final_update_id
             );
             println!("{}", "-".repeat(80));
         }
