@@ -11,7 +11,8 @@ struct DepthUpdateMessage {
     #[serde(rename = "E")]
     event_time: u64,     // Event time
     s: String,  // Symbol
-    U: u64,     // First update ID in event
+    #[serde(rename = "U")]
+    first_update_id: u64,     // First update ID in event
     u: u64,     // Final update ID in event
     b: Vec<[String; 2]>, // Bids to update [price, quantity]
     a: Vec<[String; 2]>, // Asks to update [price, quantity]
