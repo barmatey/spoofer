@@ -41,7 +41,7 @@ impl DepthUpdateMessage {
         }
     }
 
-    pub fn get_depth_update_events(&self) -> Vec<LevelUpdated> {
+    pub fn get_events(&self) -> Vec<LevelUpdated> {
         let mut result = Vec::with_capacity(self.bids_to_update.len() + self.asks_to_update.len());
         self.process_side_orders(&mut result, &self.bids_to_update, Side::Buy);
         self.process_side_orders(&mut result, &self.asks_to_update, Side::Sell);
@@ -61,7 +61,7 @@ impl BinanceConnector {
     async fn handle_depth_message(&mut self, text: &str) {
         match serde_json::from_str::<DepthUpdateMessage>(text) {
             Ok(message) => {
-               let events = message.get_depth_update_events();
+               let events = message.get_events();
                 for e in events{
                     println!("{:?}", e);
                 }
