@@ -1,6 +1,6 @@
 use crate::bus::Bus;
 use crate::connectors::{BinanceConnector, Connector};
-use crate::events::LevelUpdated;
+use crate::events::{LevelUpdated, TradeEvent};
 
 mod events;
 mod bus;
@@ -13,6 +13,7 @@ async fn main() {
 
     let bus = Bus::new();
     bus.subscribe::<LevelUpdated>(|ev| {println!("{:?}", ev)});
+    bus.subscribe::<TradeEvent>(|ev| {println!("{:?}", ev)});
 
     let symbol = std::env::args()
         .nth(1)
