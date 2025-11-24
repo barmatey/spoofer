@@ -1,5 +1,6 @@
 mod events;
 mod bus;
+mod connectors;
 
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
