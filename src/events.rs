@@ -1,8 +1,8 @@
 use crate::bus::Event;
 use std::any::Any;
 
-pub type Price = String;
-pub type Quantity = String;
+pub type Price = u128;
+pub type Quantity = u128;
 
 #[derive(Debug, Clone)]
 pub enum Side {

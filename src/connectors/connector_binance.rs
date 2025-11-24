@@ -1,6 +1,6 @@
 use crate::bus::Bus;
 use crate::connectors::Connector;
-use crate::events::{LevelUpdated, TradeEvent, Price, Quantity, Side};
+use crate::events::{LevelUpdated, Price, Quantity, Side, TradeEvent};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -21,34 +21,9 @@ struct DepthUpdateMessage {
     #[serde(rename = "u")]
     final_update_id: u64,
     #[serde(rename = "b")]
-    bids_to_update: Vec<(Price, Quantity)>,
+    bids_to_update: Vec<(String, String)>, // Price, Quantity
     #[serde(rename = "a")]
-    asks_to_update: Vec<(Price, Quantity)>,
-}
-
-impl DepthUpdateMessage {
-    fn process_side(
-        &self,
-        result: &mut Vec<LevelUpdated>,
-        orders: &[(Price, Quantity)],
-        side: Side,
-    ) {
-        for (price, quantity) in orders.iter() {
-            result.push(LevelUpdated {
-                side: side.clone(),
-                price: price.clone(),
-                quantity: quantity.clone(),
-                timestamp: self.event_time,
-            });
-        }
-    }
-
-    pub fn get_events(&self) -> Vec<LevelUpdated> {
-        let mut result = Vec::with_capacity(self.bids_to_update.len() + self.asks_to_update.len());
-        self.process_side(&mut result, &self.bids_to_update, Side::Buy);
-        self.process_side(&mut result, &self.asks_to_update, Side::Sell);
-        result
-    }
+    asks_to_update: Vec<(String, String)>, // Price, Quantity
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,48 +35,83 @@ struct AggTradeMessage {
     #[serde(rename = "s")]
     symbol: String,
     #[serde(rename = "p")]
-    price: Price,
+    price: String,
     #[serde(rename = "q")]
-    quantity: Quantity,
+    quantity: String,
     #[serde(rename = "m")]
     is_buyer_maker: bool,
 }
 
-impl AggTradeMessage {
-    pub fn to_event(&self) -> TradeEvent {
-        TradeEvent {
-            price: self.price.clone(),
-            quantity: self.quantity.clone(),
-            timestamp: self.event_time,
-            is_buyer_maker: self.is_buyer_maker,
-        }
-    }
+pub struct BinanceConnectorConfig {
+    pub ticker: String,
+    pub price_multiply: u32,
+    pub quantity_multiply: u32,
 }
 
 pub struct BinanceConnector<'a> {
-    ticker: String,
     bus: &'a Bus,
+    config: BinanceConnectorConfig,
 }
 
 impl<'a> BinanceConnector<'a> {
-    pub fn new(bus: &'a Bus, ticker: &str) -> Self {
-        Self {
-            ticker: ticker.to_string(),
-            bus,
+    pub fn new(bus: &'a Bus, config: BinanceConnectorConfig) -> Self {
+        Self { config, bus }
+    }
+
+    fn get_event_from_agg_trade(&self, trade: AggTradeMessage) -> TradeEvent {
+        TradeEvent {
+            price: (trade.price.parse::<f32>().unwrap() * self.config.price_multiply as f32)
+                as Price,
+            quantity: (trade.quantity.parse::<f32>().unwrap()
+                * self.config.quantity_multiply as f32) as Quantity,
+            timestamp: trade.event_time,
+            is_buyer_maker: trade.is_buyer_maker,
         }
     }
 
+    fn get_events_from_depth(&self, depth: DepthUpdateMessage) -> Vec<LevelUpdated> {
+        let mut result =
+            Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
+
+        for (price, quantity) in depth.bids_to_update.iter() {
+            result.push(LevelUpdated {
+                side: Side::Buy,
+                price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
+                quantity: (quantity.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
+                    as Quantity,
+                timestamp: depth.event_time,
+            });
+        }
+
+        for (price, quantity) in depth.asks_to_update.iter() {
+            result.push(LevelUpdated {
+                side: Side::Sell,
+                price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
+                quantity: (quantity.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
+                    as Quantity,
+                timestamp: depth.event_time,
+            });
+        }
+
+        result
+    }
+
     async fn handle_depth(&self, txt: &str) {
-        if let Ok(msg) = serde_json::from_str::<DepthUpdateMessage>(txt) {
-            for e in msg.get_events() {
-                self.bus.publish(Arc::new(e));
+        let parsed = serde_json::from_str::<DepthUpdateMessage>(txt);
+        match parsed {
+            Ok(value) => {
+                for e in self.get_events_from_depth(value) {
+                    self.bus.publish(Arc::new(e));
+                }
             }
+            Err(err) => println!("DepthUpdateMessage ParsingError: {:?}", err),
         }
     }
 
     async fn handle_trade(&self, txt: &str) {
         if let Ok(msg) = serde_json::from_str::<AggTradeMessage>(txt) {
-            self.bus.publish(Arc::new(msg.to_event()));
+            let event = self.get_event_from_agg_trade(msg);
+            self.bus.publish(Arc::new(event));
         }
     }
 
@@ -125,7 +135,7 @@ impl<'a> BinanceConnector<'a> {
     > {
         let url = format!(
             "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
-            self.ticker, self.ticker
+            self.config.ticker, self.config.ticker,
         );
 
         println!("🔗 Connecting: {}", url);
@@ -141,18 +151,31 @@ impl<'a> BinanceConnector<'a> {
             tokio::select! {
                 message = read.next() => {
                     if let Some(Ok(Message::Text(txt))) = message {
-                        // Combined streams wrap data like {"stream":"...","data":{...}}
+                        // Binance combined stream: {"stream":"...","data":{...}}
                         if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(&txt) {
                             if let Some(data) = wrapper.get("data") {
-                                let s = data.to_string();
-                                self.handle_depth(&s).await;
-                                self.handle_trade(&s).await;
+                                if let Some(event_type) = data.get("e").and_then(|v| v.as_str()) {
+                                    match event_type {
+                                        "depthUpdate" => {
+                                            self.handle_depth(&data.to_string()).await;
+                                        },
+                                        "aggTrade" => {
+                                            self.handle_trade(&data.to_string()).await;
+                                        },
+                                        _ => {}
+                                    }
+                                }
                             }
+                        } else {
+                            println!("Failed to parse wrapper: {}", txt);
                         }
                     }
-                }
+                },
                 _ = sleep(Duration::from_secs(20)) => {
-                    let _ = write.send(Message::Ping(vec![])).await;
+                    // Ping для поддержания соединения
+                    if let Err(e) = write.send(Message::Ping(vec![])).await {
+                        eprintln!("Ping error: {:?}", e);
+                    }
                 }
             }
         }
