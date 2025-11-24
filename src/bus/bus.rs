@@ -61,12 +61,3 @@ impl Bus {
     }
 }
 
-// Реализация клонирования для Bus
-impl Clone for Bus {
-    fn clone(&self) -> Self {
-        Self {
-            subs: Arc::clone(&self.subs),
-            events: Arc::clone(&self.events),
-        }
-    }
-}
