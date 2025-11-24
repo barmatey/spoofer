@@ -1,5 +1,5 @@
 pub trait Connector{
-    async fn listen(){
+    async fn listen(&mut self){
         
     }
 }

@@ -1,5 +1,8 @@
 use crate::bus::Event;
 
+pub type Price = String;
+pub type Quantity = String;
+
 pub struct OrderCreated {}
 
 pub struct OrderCancelled {
