@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::{Any};
 use crate::bus::Event;
 
 pub type Price = String;
@@ -22,9 +22,5 @@ pub struct LevelUpdated {
 impl Event for LevelUpdated {
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<LevelUpdated>()
     }
 }
