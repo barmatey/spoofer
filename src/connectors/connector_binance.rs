@@ -1,5 +1,5 @@
 use crate::connectors::Connector;
-use crate::events::{OrderCancelled, OrderCreated, OrderUpdated, Price, Quantity, Side};
+use crate::events::{LevelUpdated, Price, Quantity, Side};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
@@ -24,37 +24,24 @@ struct DepthUpdateMessage {
     asks_to_update: Vec<(Price, Quantity)>,
 }
 
-#[derive(Debug)]
-enum DepthUpdateEvent {
-    Created(OrderCreated),
-    Cancelled(OrderCancelled),
-}
 
 impl DepthUpdateMessage {
     fn process_side_orders(&self,
-        result: &mut Vec<DepthUpdateEvent>,
+        result: &mut Vec<LevelUpdated>,
         orders: &[(Price, Quantity)],
         side: Side,
     ) {
         for (price, quantity) in orders.iter() {
-            let event = if quantity.parse::<f64>().unwrap() == 0.0 {
-                DepthUpdateEvent::Cancelled(OrderCancelled {
-                    side: side.clone(),
-                    price: price.clone(),
-                    quantity: quantity.clone(),
-                })
-            } else {
-                DepthUpdateEvent::Created(OrderCreated {
-                    side: side.clone(),
-                    price: price.clone(),
-                    quantity: quantity.clone(),
-                })
+            let event = LevelUpdated {
+                side: side.clone(),
+                price: price.clone(),
+                quantity: quantity.clone(),
             };
             result.push(event);
         }
     }
 
-    pub fn get_depth_update_events(&self) -> Vec<DepthUpdateEvent> {
+    pub fn get_depth_update_events(&self) -> Vec<LevelUpdated> {
         let mut result = Vec::with_capacity(self.bids_to_update.len() + self.asks_to_update.len());
         self.process_side_orders(&mut result, &self.bids_to_update, Side::Buy);
         self.process_side_orders(&mut result, &self.asks_to_update, Side::Sell);
