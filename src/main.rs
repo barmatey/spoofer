@@ -1,3 +1,6 @@
+mod events;
+mod bus;
+
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{StreamExt, SinkExt};
@@ -28,8 +31,8 @@ struct DepthUpdateMessage {
 
 #[derive(Debug, Clone)]
 struct OrderBook {
-    bids: HashMap<Price, Quantity>, // price -> quantity
-    asks: HashMap<Price, Quantity>, // price -> quantity
+    bids: HashMap<Price, Quantity>,
+    asks: HashMap<Price, Quantity>,
 }
 
 impl OrderBook {
@@ -40,7 +43,7 @@ impl OrderBook {
         }
     }
 
-    fn update(&mut self, bids: &Vec<(Price, Quantity)>, asks: &Vec<(Price, Quantity)>) -> Vec<OrderEvent> {
+    fn update(&mut self, bids: &[(Price, Quantity)], asks: &[(Price, Quantity)]) -> Vec<OrderEvent> {
         let mut events = Vec::new();
 
         // Process bids
@@ -48,7 +51,7 @@ impl OrderBook {
             let price = &bid.0;
             let quantity = &bid.1;
 
-            if quantity == "0.00000000" || quantity == "0.00" {
+            if (*quantity).parse::<f32>().unwrap() == 0.0 {
                 // Order removal
                 if self.bids.remove(price).is_some() {
                     events.push(OrderEvent::Canceled {
