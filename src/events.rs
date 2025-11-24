@@ -16,6 +16,7 @@ pub struct LevelUpdated {
     pub side: Side,
     pub price: Price,
     pub quantity: Quantity,
+    pub timestamp: u64, 
 }
 
 

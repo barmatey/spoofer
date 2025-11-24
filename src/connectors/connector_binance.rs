@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use crate::bus::Bus;
 use crate::connectors::Connector;
 use crate::events::{LevelUpdated, Price, Quantity, Side};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
-use crate::bus::Bus;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -26,18 +26,20 @@ struct DepthUpdateMessage {
     asks_to_update: Vec<(Price, Quantity)>,
 }
 
-
 impl DepthUpdateMessage {
-    fn process_side_orders(&self,
+    fn process_side_orders(
+        &self,
         result: &mut Vec<LevelUpdated>,
         orders: &[(Price, Quantity)],
         side: Side,
+        timestamp: u64,
     ) {
         for (price, quantity) in orders.iter() {
             let event = LevelUpdated {
                 side: side.clone(),
                 price: price.clone(),
                 quantity: quantity.clone(),
+                timestamp,
             };
             result.push(event);
         }
@@ -45,8 +47,18 @@ impl DepthUpdateMessage {
 
     pub fn get_events(&self) -> Vec<LevelUpdated> {
         let mut result = Vec::with_capacity(self.bids_to_update.len() + self.asks_to_update.len());
-        self.process_side_orders(&mut result, &self.bids_to_update, Side::Buy);
-        self.process_side_orders(&mut result, &self.asks_to_update, Side::Sell);
+        self.process_side_orders(
+            &mut result,
+            &self.bids_to_update,
+            Side::Buy,
+            self.event_time,
+        );
+        self.process_side_orders(
+            &mut result,
+            &self.asks_to_update,
+            Side::Sell,
+            self.event_time,
+        );
         result
     }
 }
@@ -65,8 +77,8 @@ impl<'a> BinanceConnector<'a> {
     async fn handle_depth_message(&mut self, text: &str) {
         match serde_json::from_str::<DepthUpdateMessage>(text) {
             Ok(message) => {
-               let events = message.get_events();
-                for e in events{
+                let events = message.get_events();
+                for e in events {
                     self.bus.publish(Arc::new(e));
                 }
             }

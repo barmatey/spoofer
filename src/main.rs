@@ -6,12 +6,12 @@ mod events;
 mod bus;
 mod connectors;
 mod temp;
-
+mod services;
 
 #[tokio::main]
 async fn main() {
 
-    let mut bus = Bus::new();
+    let bus = Bus::new();
     bus.subscribe::<LevelUpdated>(|ev| {println!("{:?}", ev)});
 
     let symbol = std::env::args()
