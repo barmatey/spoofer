@@ -1,2 +1,6 @@
-pub trait Event: Send + Sync {}
+use std::any::{Any, TypeId};
 
+pub trait Event: Send + Sync {
+    fn as_any(&self) -> &dyn Any;
+    fn type_id(&self) -> TypeId;
+}
