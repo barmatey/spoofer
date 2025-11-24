@@ -104,14 +104,17 @@ impl<'a> BinanceConnector<'a> {
                     self.bus.publish(Arc::new(e));
                 }
             }
-            Err(err) => println!("DepthUpdateMessage ParsingError: {:?}", err),
+            Err(err) => println!("DepthUpdateMessage parsing error: {:?}", err),
         }
     }
 
     async fn handle_trade(&self, txt: &str) {
-        if let Ok(msg) = serde_json::from_str::<AggTradeMessage>(txt) {
-            let event = self.get_event_from_agg_trade(msg);
-            self.bus.publish(Arc::new(event));
+        match serde_json::from_str::<AggTradeMessage>(txt) {
+            Ok(msg) => {
+                let event = self.get_event_from_agg_trade(msg);
+                self.bus.publish(Arc::new(event));
+            }
+            Err(err) => println!("AggTradeMessage parsing error: {:?}", err),
         }
     }
 
