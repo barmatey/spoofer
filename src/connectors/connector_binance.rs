@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::connectors::Connector;
 use crate::events::{LevelUpdated, Price, Quantity, Side};
 use futures_util::{SinkExt, StreamExt};
@@ -5,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
+use crate::bus::Bus;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -48,14 +50,16 @@ impl DepthUpdateMessage {
         result
     }
 }
-pub struct BinanceConnector {
+pub struct BinanceConnector<'a> {
     ticker: String,
+    bus: &'a Bus,
 }
 
-impl BinanceConnector {
-    pub fn new(ticker: &str) -> Self {
+impl<'a> BinanceConnector<'a> {
+    pub fn new(bus: &'a Bus, ticker: &str) -> Self {
         Self {
             ticker: ticker.to_string(),
+            bus,
         }
     }
     async fn handle_depth_message(&mut self, text: &str) {
@@ -63,7 +67,7 @@ impl BinanceConnector {
             Ok(message) => {
                let events = message.get_events();
                 for e in events{
-                    println!("{:?}", e);
+                    self.bus.publish(Arc::new(e));
                 }
             }
             Err(e) => eprintln!(
@@ -176,7 +180,7 @@ impl BinanceConnector {
     }
 }
 
-impl Connector for BinanceConnector {
+impl<'a> Connector for BinanceConnector<'a> {
     async fn listen(&mut self) {
         self.run_connection().await;
     }
