@@ -1,12 +1,11 @@
-use crate::bus::Event;
 use crate::domain::events::{LevelUpdated, TradeEvent};
 use crossbeam::queue::SegQueue;
 
-pub struct Topic<T: Event> {
+pub struct Topic<T: Send + Sync> {
     events: SegQueue<T>,
 }
 
-impl<T: Event> Topic<T> {
+impl<T: Send + Sync> Topic<T> {
     pub fn new() -> Self {
         Self {
             events: SegQueue::new(),

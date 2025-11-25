@@ -1,6 +1,3 @@
-use crate::bus::Event;
-use std::any::Any;
-
 pub type Price = u128;
 pub type Quantity = u128;
 
@@ -26,14 +23,3 @@ pub struct TradeEvent {
     pub is_buyer_maker: bool,
 }
 
-impl Event for LevelUpdated {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl Event for TradeEvent {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
