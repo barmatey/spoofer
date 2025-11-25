@@ -1,5 +1,6 @@
 use crate::domain::events::{Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
+use std::time::Duration;
 
 struct Level {
     active: BTreeMap<Price, ()>,
@@ -113,5 +114,66 @@ impl OrderBook {
 
     pub fn update_ask(&mut self, price: Price, quantity: Quantity) {
         self.asks.update(price, quantity)
+    }
+}
+
+
+
+
+
+pub async fn display_order_book(order_book: &OrderBook, depth: usize) {
+    print!("\x1B[2J\x1B[H"); // очистить и курсор в начало
+
+    loop {
+        print!("\x1B[H"); // курсор в начало экрана (без очистки всего)
+
+        println!("================= ORDER BOOK =================");
+        println!("   BID (price x qty)         |     ASK (price x qty)");
+        println!("-----------------------------------------------------");
+
+        // 🔹 Соберём BID
+        let mut bids: Vec<(Price, Quantity)> = order_book
+            .bids
+            .active
+            .iter()
+            .rev()
+            .filter_map(|(&p, _)| order_book.bids.levels.get(&p).map(|&q| (p, q)))
+            .take(depth)
+            .collect();
+
+        // 🔹 Соберём ASK
+        let mut asks: Vec<(Price, Quantity)> = order_book
+            .asks
+            .active
+            .iter()
+            .filter_map(|(&p, _)| order_book.asks.levels.get(&p).map(|&q| (p, q)))
+            .take(depth)
+            .collect();
+
+        // выравниваем длины (для графического вывода)
+        let max_len = bids.len().max(asks.len());
+        bids.resize(max_len, (0, 0));
+        asks.resize(max_len, (0, 0));
+
+        for i in 0..max_len {
+            let (bp, bq) = bids[i];
+            let (ap, aq) = asks[i];
+
+            let bid_str = if bq > 0 {
+                format!("{:>8} x {:<8}", bp, bq)
+            } else {
+                " ".repeat(18)
+            };
+
+            let ask_str = if aq > 0 {
+                format!("{:>8} x {:<8}", ap, aq)
+            } else {
+                " ".repeat(18)
+            };
+
+            println!("  {}     |     {}", bid_str, ask_str);
+        }
+
+        tokio::time::sleep(Duration::from_millis(200)).await;
     }
 }
