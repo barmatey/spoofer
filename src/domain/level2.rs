@@ -107,7 +107,7 @@ impl OrderBook {
         self.asks.get_position(price)
     }
 
-    pub fn handle_level_updated(&mut self, events: &[LevelUpdated]) {
+    pub fn update(&mut self, events: &[LevelUpdated]) {
         for event in events {
             match event.side {
                 Side::Buy => self.bids.update(event.price, event.quantity),

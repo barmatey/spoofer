@@ -21,7 +21,7 @@ async fn main() {
 
         loop {
             let events = bus.levels.pull();
-            order_book.handle_level_updated(&events);
+            order_book.update(&events);
 
             display_order_book(&order_book, 10);
             tokio::time::sleep(Duration::from_millis(2_000)).await;
