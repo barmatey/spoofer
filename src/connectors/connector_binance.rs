@@ -3,7 +3,6 @@ use crate::connectors::Connector;
 use crate::domain::events::{LevelUpdated, Price, Quantity, Side, TradeEvent};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
@@ -101,7 +100,7 @@ impl<'a> BinanceConnector<'a> {
         match parsed {
             Ok(value) => {
                 for e in self.get_events_from_depth(value) {
-                    self.bus.publish(Arc::new(e));
+                    self.bus.publish(e);
                 }
             }
             Err(err) => println!("DepthUpdateMessage parsing error: {:?}", err),
@@ -112,7 +111,7 @@ impl<'a> BinanceConnector<'a> {
         match serde_json::from_str::<AggTradeMessage>(txt) {
             Ok(msg) => {
                 let event = self.get_event_from_agg_trade(msg);
-                self.bus.publish(Arc::new(event));
+                self.bus.publish(event);
             }
             Err(err) => println!("AggTradeMessage parsing error: {:?}", err),
         }

@@ -1,30 +1,34 @@
+use std::time::Duration;
 use crate::bus::Bus;
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
-use domain::events::{LevelUpdated, TradeEvent};
-use crate::domain::events::Side;
 use crate::domain::level2::OrderBook;
+use domain::events::{LevelUpdated};
 
 mod bus;
 mod connectors;
-mod services;
 mod domain;
+mod services;
 
 #[tokio::main]
 async fn main() {
-    let bus = Bus::new();
-    let mut order_book = OrderBook::new();
-
-    bus.subscribe::<LevelUpdated>(|ev| {
-        match ev.side {
-            Side::Buy =>order_book.update_bid(ev.price, ev.quantity),
-            Side::Sell => order_book.update_ask(ev.price, ev.quantity),
-        }
-    });
-    bus.subscribe::<TradeEvent>(|ev| println!("{:?}", ev));
-
     let symbol = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "btcusdt".to_string());
+
+    let bus = Bus::new();
+
+    let order_book_sub = bus.subscribe::<LevelUpdated>();
+
+    let mut order_book = OrderBook::new();
+    let worker = async || {
+        loop{
+            let events = bus.pull::<LevelUpdated>(order_book_sub).unwrap();
+            for ev in events {
+                println!("{:?}", ev);
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    };
 
     let mut connector = BinanceConnector::new(
         &bus,
@@ -35,5 +39,5 @@ async fn main() {
         },
     );
 
-    tokio::join!(connector.listen(), bus.processing());
+    tokio::join!(connector.listen(), worker(),);
 }

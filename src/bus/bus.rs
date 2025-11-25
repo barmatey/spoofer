@@ -1,75 +1,116 @@
 use crate::bus::Event;
 use arc_swap::ArcSwap;
 use crossbeam::queue::SegQueue;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 
-type Subscriber<T> = fn(&T);
-
-type SubWrapper = Arc<dyn Fn(&dyn Event) + Send + Sync>;
-
 pub struct Bus {
-    subs: ArcSwap<HashMap<TypeId, Arc<[SubWrapper]>>>,
-    events: SegQueue<Arc<dyn Event + Send + Sync>>,
+    /// Вектор всех событий по типам
+    snapshots: ArcSwap<HashMap<TypeId, Arc<Vec<Arc<dyn Any + Send + Sync>>>>>,
+    /// Очередь для входящих событий
+    queue: SegQueue<Arc<dyn Event + Send + Sync>>,
+    /// Offset каждого подписчика
+    offsets: ArcSwap<HashMap<u16, HashMap<TypeId, usize>>>,
+    /// Генератор ID для подписчиков
+    next_sub_id: AtomicU16,
 }
 
 impl Bus {
     pub fn new() -> Self {
         Self {
-            subs: ArcSwap::new(Arc::new(HashMap::new())),
-            events: SegQueue::new(),
+            snapshots: ArcSwap::new(Arc::new(HashMap::new())),
+            queue: SegQueue::new(),
+            offsets: ArcSwap::new(Arc::new(HashMap::new())),
+            next_sub_id: AtomicU16::new(1),
         }
     }
 
-    pub fn publish(&self, event: Arc<dyn Event + Send + Sync>) {
-        self.events.push(event);
+    /// Публикация события
+    pub fn publish<T: Event + Send + Sync>(&self, event: T) {
+        self.queue.push(Arc::new(event));
     }
 
-    pub fn subscribe<T: Event + 'static>(&self, subscriber: Subscriber<T>) {
-        let type_id = TypeId::of::<T>();
-        let wrapped_subscriber = Arc::new(move |event: &dyn Event| {
-            if let Some(concrete_event) = event.as_any().downcast_ref::<T>() {
-                subscriber(concrete_event);
-            } else {
-                panic!("Unexpected event type");
-            }
-        });
+    /// Добавление подписчика, возвращает уникальный sub_id
+    pub fn subscribe<T: Event + 'static>(&self) -> u16 {
+        let sub_id = self.next_sub_id.fetch_add(1, Ordering::Relaxed);
 
-        // RCU-паттерн: читаем-модифицируем-заменяем
         loop {
-            let current = self.subs.load();
-
+            let current = self.offsets.load();
             let mut new_map = (**current).clone();
-            let entry = new_map.entry(type_id).or_insert_with(|| Arc::new([]));
-            let mut new_subscribers: Vec<_> = entry.as_ref().to_vec();
-            new_subscribers.push(wrapped_subscriber.clone());
-            new_map.insert(type_id, Arc::from(new_subscribers));
+            new_map.insert(sub_id, HashMap::new()); // новый подписчик с пустыми offset
 
-            match self.subs.compare_and_swap(&current, Arc::new(new_map)) {
+            match self.offsets.compare_and_swap(&current, Arc::new(new_map)) {
                 old if Arc::ptr_eq(&old, &current) => break,
                 _ => continue,
             }
         }
-    }
-    pub fn process_events(&self) {
-        while let Some(event) = self.events.pop() {
-            let type_id = event.as_any().type_id();
 
-            // Lock-free чтение!
-            let subscribers_map = self.subs.load();
-            if let Some(subscribers) = subscribers_map.get(&type_id) {
-                for subscriber in subscribers.iter() {
-                    subscriber(&*event);
+        sub_id
+    }
+
+    /// Pull событий для подписчика начиная с его offset
+    pub fn pull<T: Event + 'static>(&self, sub_id: u16) -> Result<Vec<Arc<T>>, ()> {
+        let wanted = TypeId::of::<T>();
+
+        // Переносим все события из очереди в snapshots
+        while let Some(event) = self.queue.pop() {
+            let eid = (*event).type_id();
+
+            loop {
+                let current_snap = self.snapshots.load();
+                let mut new_snap = (**current_snap).clone();
+
+                let entry = new_snap.entry(eid).or_insert_with(|| Arc::new(Vec::new()));
+                let mut vec_copy = entry.as_ref().clone();
+                vec_copy.push(event.clone());
+                new_snap.insert(eid, Arc::new(vec_copy));
+
+                if Arc::ptr_eq(
+                    &self
+                        .snapshots
+                        .compare_and_swap(&current_snap, Arc::new(new_snap)),
+                    &current_snap,
+                ) {
+                    break;
                 }
             }
         }
-    }
 
-    pub async fn processing(&self) {
-        loop {
-            self.process_events();
-            tokio::task::yield_now().await;
+        // Получаем snapshot и offset подписчика
+        let snapshots = self.snapshots.load();
+        let offsets = self.offsets.load();
+        let sub_offset_map = offsets.get(&sub_id).ok_or(())?;
+        let mut new_offset_map = sub_offset_map.clone();
+
+        let mut result: Vec<Arc<T>> = Vec::new();
+        if let Some(events) = snapshots.get(&wanted) {
+            let offset = sub_offset_map.get(&wanted).copied().unwrap_or(0);
+            if offset < events.len() {
+                for ev in &events[offset..] {
+                    // Downcast Arc<dyn Event> -> Arc<T>
+                    let e = Arc::clone(ev).downcast::<T>().expect("Unexpected type");
+                    result.push(e);
+                }
+                new_offset_map.insert(wanted, events.len());
+            }
         }
+
+        // Обновляем offset подписчика
+        loop {
+            let current = self.offsets.load();
+            let mut new_map = (**current).clone();
+            new_map.insert(sub_id, new_offset_map.clone());
+
+            if Arc::ptr_eq(
+                &self.offsets.compare_and_swap(&current, Arc::new(new_map)),
+                &current,
+            ) {
+                break;
+            }
+        }
+        
+        Ok(result)
     }
 }
