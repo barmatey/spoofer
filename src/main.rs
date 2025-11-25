@@ -1,6 +1,6 @@
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
 use crate::domain::events::Side;
-use crate::domain::level2::{display_order_book, OrderBook};
+use crate::domain::{display_order_book, OrderBook};
 use crate::services::bus::Bus;
 use std::time::Duration;
 
