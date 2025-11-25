@@ -2,7 +2,6 @@ use std::time::Duration;
 use crate::bus::Bus;
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
 use crate::domain::level2::{display_order_book, OrderBook};
-use domain::events::{LevelUpdated};
 use crate::domain::events::Side;
 
 mod bus;
@@ -19,11 +18,10 @@ async fn main() {
     let bus = Bus::new();
 
     let worker = async || {
-        let order_book_sub = bus.subscribe::<LevelUpdated>();
         let mut order_book = OrderBook::new();
 
         loop{
-            let events = bus.pull::<LevelUpdated>(order_book_sub).unwrap();
+            let events = bus.levels.pull();
             for ev in events {
                 match ev.side {
                     Side::Buy => order_book.update_bid(ev.price, ev.quantity),

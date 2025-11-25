@@ -95,23 +95,23 @@ impl<'a> BinanceConnector<'a> {
         result
     }
 
-    async fn handle_depth(&self, txt: &str) {
+    async fn handle_depth(&mut self, txt: &str) {
         let parsed = serde_json::from_str::<DepthUpdateMessage>(txt);
         match parsed {
             Ok(value) => {
                 for e in self.get_events_from_depth(value) {
-                    self.bus.publish(e);
+                    self.bus.levels.publish(e);
                 }
             }
             Err(err) => println!("DepthUpdateMessage parsing error: {:?}", err),
         }
     }
 
-    async fn handle_trade(&self, txt: &str) {
+    async fn handle_trade(&mut self, txt: &str) {
         match serde_json::from_str::<AggTradeMessage>(txt) {
             Ok(msg) => {
                 let event = self.get_event_from_agg_trade(msg);
-                self.bus.publish(event);
+                self.bus.trades.publish(event);
             }
             Err(err) => println!("AggTradeMessage parsing error: {:?}", err),
         }
