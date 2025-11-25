@@ -2,8 +2,8 @@ use crate::domain::events::{Quantity, Side, TimestampMS};
 
 #[derive(Debug)]
 pub enum SnapError {
-    DeepError(String),
-    SortError(String),
+    DeepError,
+    SortError,
 }
 
 pub struct Snap {
@@ -27,18 +27,12 @@ impl Level {
     }
     pub fn push(&mut self, snap: Snap) -> Result<(), SnapError> {
         if snap.level >= self.snaps.len() {
-            let err = format!(
-                "You are trying push level {} while {} is maximum",
-                snap.level,
-                self.snaps.len() - 1
-            );
-            return Err(SnapError::DeepError(err));
+            return Err(SnapError::DeepError);
         }
 
         if let Some(last_snap) = self.snaps[snap.level].last() {
             if snap.timestamp < last_snap.timestamp {
-                let err = "You are trying to push a snap with an earlier timestamp".to_string();
-                return Err(SnapError::SortError(err));
+                return Err(SnapError::SortError);
             }
         }
 
@@ -46,10 +40,13 @@ impl Level {
         Ok(())
     }
 
-    pub fn get_average_quantity(&self, level: usize, period: TimestampMS) -> Result<u128, SnapError> {
+    pub fn get_average_quantity(
+        &self,
+        level: usize,
+        period: TimestampMS,
+    ) -> Result<u128, SnapError> {
         if level >= self.snaps.len() {
-            let err = format!("Level {} does not exist", level);
-            return Err(SnapError::DeepError(err));
+            return Err(SnapError::DeepError);
         }
 
         let snaps = &self.snaps[level];
@@ -111,5 +108,72 @@ impl OrderStat {
             Side::Buy => self.bids.get_average_quantity(level, period),
             Side::Sell => self.asks.get_average_quantity(level, period),
         }
+    }
+}
+
+mod tests {
+    use crate::domain::events::Side;
+    use crate::domain::order_stat::SnapError;
+    use crate::domain::{OrderStat, Snap};
+
+    #[test]
+    fn test_get_average_quantity() {
+        let s1 = Snap {
+            level: 0,
+            quantity: 6,
+            timestamp: 1,
+            side: Side::Buy,
+        };
+        let s2 = Snap {
+            level: 0,
+            quantity: 2,
+            timestamp: 20,
+            side: Side::Buy,
+        };
+        let s3 = Snap {
+            level: 0,
+            quantity: 4,
+            timestamp: 30,
+            side: Side::Buy,
+        };
+        let mut foo = OrderStat::new(1);
+        foo.push(s1).unwrap();
+        foo.push(s2).unwrap();
+        foo.push(s3).unwrap();
+        let left = foo.get_average_quantity(Side::Buy, 0, 25).unwrap();
+        assert_eq!(left, 3);
+    }
+
+    #[test]
+    fn test_push_snap_with_exceed_level() {
+        let s1 = Snap {
+            level: 1,
+            quantity: 6,
+            timestamp: 1,
+            side: Side::Buy,
+        };
+        let mut foo = OrderStat::new(1);
+        let left = foo.push(s1);
+        assert!(left.is_err());
+    }
+
+    #[test]
+    fn push_earlier_snap_after_older_one() {
+        let s1 = Snap {
+            level: 0,
+            quantity: 6,
+            timestamp: 2,
+            side: Side::Buy,
+        };
+        let s2 = Snap {
+            level: 0,
+            quantity: 6,
+            timestamp: 1,
+            side: Side::Buy,
+        };
+        let mut foo = OrderStat::new(1);
+        foo.push(s1).unwrap();
+        let left = foo.push(s2);
+        assert!(left.is_err());
     }
 }
