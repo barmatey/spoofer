@@ -10,7 +10,7 @@ pub struct Bus {
     /// Вектор всех событий по типам
     snapshots: ArcSwap<HashMap<TypeId, Arc<Vec<Arc<dyn Any + Send + Sync>>>>>,
     /// Очередь для входящих событий
-    queue: SegQueue<Arc<dyn Event + Send + Sync>>,
+    queue: SegQueue<Arc<dyn Event>>,
     /// Offset каждого подписчика
     offsets: ArcSwap<HashMap<u16, HashMap<TypeId, usize>>>,
     /// Генератор ID для подписчиков
@@ -28,7 +28,7 @@ impl Bus {
     }
 
     /// Публикация события
-    pub fn publish<T: Event + Send + Sync>(&self, event: T) {
+    pub fn publish<T: Event>(&self, event: T) {
         self.queue.push(Arc::new(event));
     }
 
@@ -110,7 +110,7 @@ impl Bus {
                 break;
             }
         }
-        
+
         Ok(result)
     }
 }
