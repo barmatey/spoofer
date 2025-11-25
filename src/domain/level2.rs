@@ -1,4 +1,4 @@
-use crate::events::{Price, Quantity, Side};
+use crate::domain::events::{Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
 
 struct Level {

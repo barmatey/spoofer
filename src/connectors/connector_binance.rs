@@ -1,6 +1,6 @@
 use crate::bus::Bus;
 use crate::connectors::Connector;
-use crate::events::{LevelUpdated, Price, Quantity, Side, TradeEvent};
+use crate::domain::events::{LevelUpdated, Price, Quantity, Side, TradeEvent};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

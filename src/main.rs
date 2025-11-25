@@ -1,11 +1,11 @@
 use crate::bus::Bus;
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
-use crate::events::{LevelUpdated, TradeEvent};
+use domain::events::{LevelUpdated, TradeEvent};
 
 mod bus;
 mod connectors;
-mod events;
 mod services;
+mod domain;
 
 #[tokio::main]
 async fn main() {
