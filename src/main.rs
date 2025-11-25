@@ -1,8 +1,8 @@
-use std::time::Duration;
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
-use crate::domain::level2::{display_order_book, OrderBook};
 use crate::domain::events::Side;
+use crate::domain::level2::{display_order_book, OrderBook};
 use crate::services::bus::Bus;
+use std::time::Duration;
 
 mod connectors;
 mod domain;
@@ -19,14 +19,10 @@ async fn main() {
     let worker = async || {
         let mut order_book = OrderBook::new();
 
-        loop{
+        loop {
             let events = bus.levels.pull();
-            for ev in events {
-                match ev.side {
-                    Side::Buy => order_book.update_bid(ev.price, ev.quantity),
-                    Side::Sell => order_book.update_ask(ev.price, ev.quantity),
-                }
-            }
+            order_book.handle_level_updated(&events);
+
             display_order_book(&order_book, 10);
             tokio::time::sleep(Duration::from_millis(2_000)).await;
         }

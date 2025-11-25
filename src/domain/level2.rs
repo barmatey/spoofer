@@ -1,4 +1,4 @@
-use crate::domain::events::{Price, Quantity, Side};
+use crate::domain::events::{LevelUpdated, Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
 
 struct Level {
@@ -107,18 +107,15 @@ impl OrderBook {
         self.asks.get_position(price)
     }
 
-    pub fn update_bid(&mut self, price: Price, quantity: Quantity) {
-        self.bids.update(price, quantity)
-    }
-
-    pub fn update_ask(&mut self, price: Price, quantity: Quantity) {
-        self.asks.update(price, quantity)
+    pub fn handle_level_updated(&mut self, events: &[LevelUpdated]) {
+        for event in events {
+            match event.side {
+                Side::Buy => self.bids.update(event.price, event.quantity),
+                Side::Sell => self.asks.update(event.price, event.quantity),
+            }
+        }
     }
 }
-
-
-
-
 
 pub fn display_order_book(order_book: &OrderBook, depth: usize) {
     print!("\x1B[2J\x1B[H"); // очистить экран и курсор в начало
