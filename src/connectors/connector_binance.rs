@@ -1,4 +1,3 @@
-use crate::bus::Bus;
 use crate::connectors::Connector;
 use crate::domain::events::{LevelUpdated, Price, Quantity, Side, TradeEvent};
 use futures_util::{SinkExt, StreamExt};
@@ -6,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
+use crate::services::bus::Bus;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {

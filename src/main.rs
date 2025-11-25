@@ -1,10 +1,9 @@
 use std::time::Duration;
-use crate::bus::Bus;
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
 use crate::domain::level2::{display_order_book, OrderBook};
 use crate::domain::events::Side;
+use crate::services::bus::Bus;
 
-mod bus;
 mod connectors;
 mod domain;
 mod services;
