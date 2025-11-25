@@ -47,12 +47,12 @@ impl Level {
     }
 
     /// Позиция уровня: 0 = лучший, 1 = следующий и т.д.
-    pub fn get_position(&self, price: Price) -> Option<u16> {
+    pub fn get_position(&self, price: Price) -> Option<usize> {
         if !self.levels.contains_key(&price) {
             return None;
         }
 
-        let mut pos: u16 = 0;
+        let mut pos: usize = 0;
 
         match self.side {
             Side::Buy => {
@@ -99,11 +99,18 @@ impl OrderBook {
         self.asks.get_best()
     }
 
-    pub fn get_bid_position(&self, price: Price) -> Option<u16> {
+    pub fn get_position(&self, side: &Side, price: Price) -> Option<usize> {
+        match side {
+            Side::Buy => self.bids.get_position(price),
+            Side::Sell => self.asks.get_position(price),
+        }
+    }
+
+    pub fn get_bid_position(&self, price: Price) -> Option<usize> {
         self.bids.get_position(price)
     }
 
-    pub fn get_ask_position(&self, price: Price) -> Option<u16> {
+    pub fn get_ask_position(&self, price: Price) -> Option<usize> {
         self.asks.get_position(price)
     }
 

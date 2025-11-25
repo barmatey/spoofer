@@ -1,14 +1,16 @@
-use crate::domain::events::Quantity;
+use crate::domain::events::{Quantity, Side};
 
+#[derive(Debug)]
 pub enum SnapError {
     DeepError(String),
     SortError(String),
 }
 
 pub struct Snap {
-    level: usize,
-    quantity: Quantity,
-    timestamp: u64,
+    pub level: usize,
+    pub quantity: Quantity,
+    pub timestamp: u64,
+    pub side: Side,
 }
 
 struct Level {
@@ -16,9 +18,9 @@ struct Level {
 }
 
 impl Level {
-    pub fn new(max_levels: usize) -> Self {
-        let mut snaps = Vec::with_capacity(max_levels);
-        for _ in 0..max_levels {
+    pub fn new(max_depth: usize) -> Self {
+        let mut snaps = Vec::with_capacity(max_depth);
+        for _ in 0..max_depth {
             snaps.push(Vec::new());
         }
         Self { snaps }
@@ -39,7 +41,6 @@ impl Level {
                 return Err(SnapError::SortError(err));
             }
         }
-
 
         self.snaps[snap.level].push(snap);
         Ok(())
@@ -76,6 +77,39 @@ impl Level {
             Ok(0)
         } else {
             Ok(sum / count)
+        }
+    }
+}
+
+pub struct OrderStat {
+    bids: Level,
+    asks: Level,
+}
+
+impl OrderStat {
+    pub fn new(max_depth: usize) -> Self {
+        Self {
+            bids: Level::new(max_depth),
+            asks: Level::new(max_depth),
+        }
+    }
+
+    pub fn push(&mut self, snap: Snap) -> Result<(), SnapError> {
+        match snap.side {
+            Side::Buy => self.bids.push(snap),
+            Side::Sell => self.asks.push(snap),
+        }
+    }
+
+    pub fn get_average_quantity(
+        &self,
+        side: Side,
+        level: usize,
+        period: u16,
+    ) -> Result<u128, SnapError> {
+        match side {
+            Side::Buy => self.bids.get_average_quantity(level, period),
+            Side::Sell => self.asks.get_average_quantity(level, period),
         }
     }
 }
