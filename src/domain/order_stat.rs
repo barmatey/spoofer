@@ -1,4 +1,4 @@
-use crate::domain::events::{Quantity, Side};
+use crate::domain::events::{Quantity, Side, TimestampMS};
 
 #[derive(Debug)]
 pub enum SnapError {
@@ -9,7 +9,7 @@ pub enum SnapError {
 pub struct Snap {
     pub level: usize,
     pub quantity: Quantity,
-    pub timestamp: u64,
+    pub timestamp: TimestampMS,
     pub side: Side,
 }
 
@@ -46,7 +46,7 @@ impl Level {
         Ok(())
     }
 
-    pub fn get_average_quantity(&self, level: usize, period: u16) -> Result<u128, SnapError> {
+    pub fn get_average_quantity(&self, level: usize, period: TimestampMS) -> Result<u128, SnapError> {
         if level >= self.snaps.len() {
             let err = format!("Level {} does not exist", level);
             return Err(SnapError::DeepError(err));
@@ -59,7 +59,7 @@ impl Level {
 
         // Берем текущее время как timestamp последнего снапа на уровне
         let last_timestamp = snaps.last().unwrap().timestamp;
-        let threshold = last_timestamp.saturating_sub(period as u64);
+        let threshold = last_timestamp.saturating_sub(period);
 
         // Идем с конца, так как данные отсортированы по времени
         let mut sum: u128 = 0;
@@ -105,7 +105,7 @@ impl OrderStat {
         &self,
         side: Side,
         level: usize,
-        period: u16,
+        period: TimestampMS,
     ) -> Result<u128, SnapError> {
         match side {
             Side::Buy => self.bids.get_average_quantity(level, period),
