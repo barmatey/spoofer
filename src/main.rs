@@ -39,7 +39,7 @@ async fn main() {
 
             display_order_book(&order_book, 10);
             println!();
-            println!("Average in bid 4: {}", order_stat.get_average_quantity(Side::Buy, 4, 30_000).unwrap());
+            println!("Average in bid 0: {}", order_stat.get_average_quantity(Side::Buy, 0, 30_000).unwrap());
             tokio::time::sleep(Duration::from_millis(2_000)).await;
         }
     };
