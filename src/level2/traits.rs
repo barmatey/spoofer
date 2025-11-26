@@ -18,8 +18,7 @@ pub trait BookSide {
 pub trait OrderBookFlowMetrics {
     fn bids(&self) -> &dyn BookSide;
     fn asks(&self) -> &dyn BookSide;
-
+    fn get_side(&self, side: Side) -> &dyn BookSide;
     fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error>;
-
     fn bid_ask_pressure(&self, depth: usize) -> f32;
 }

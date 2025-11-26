@@ -228,6 +228,13 @@ impl OrderBookFlowMetrics for OrderBook {
         &self.asks
     }
 
+    fn get_side(&self, side: Side) -> &dyn BookSide {
+        match side {
+            Side::Buy => &self.bids,
+            Side::Sell => &self.asks,
+        }
+    }
+
     fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         match event.side {
             Side::Buy => self.bids.update(event),
