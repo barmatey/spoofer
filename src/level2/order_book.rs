@@ -77,6 +77,10 @@ impl BookSideRealization {
 }
 
 impl BookSide for BookSideRealization {
+    fn prices(&self) -> &BTreeSet<Price> {
+        &self.sorted_prices
+    }
+
     fn total_quantity(&self, depth: usize) -> Quantity {
         let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
             Side::Buy => Box::new(self.sorted_prices.iter().rev()),

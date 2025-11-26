@@ -1,7 +1,9 @@
 use crate::level2::{Level2Error, LevelUpdated};
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
+use std::collections::BTreeSet;
 
 pub trait BookSide {
+    fn prices(&self) -> &BTreeSet<Price>;
     fn total_quantity(&self, depth: usize) -> Quantity;
     fn level_quantity(&self, price: Price) -> Quantity;
     fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS>;
