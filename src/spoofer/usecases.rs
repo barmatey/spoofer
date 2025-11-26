@@ -1,11 +1,6 @@
 use crate::level2::{BookStats, OrderBook};
 use crate::shared::{Price, TimestampMS};
-
-pub struct SpooferDetected {
-    pub price: Price,
-    pub score: u16,
-    pub timestamp: TimestampMS,
-}
+use crate::spoofer::SpooferDetected;
 
 pub struct FindSpoofer<'a> {
     order_book: &'a OrderBook,
