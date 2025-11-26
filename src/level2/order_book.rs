@@ -1,5 +1,5 @@
 use crate::level2::events::LevelUpdated;
-use crate::level2::traits::{BookSide, OrderBookFlowMetrics};
+use crate::level2::traits::{BookSide, OrderBook};
 use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use std::collections::{BTreeSet, HashMap};
@@ -195,22 +195,24 @@ impl BookSide for BookSideRealization {
         }
     }
 
-    fn level_volume_spike(&self, price: Price, period: Period, threshold: f32) -> bool {
-        let average_volume_in_period = self.level_average_quantity(price, period) as f32;
-        if average_volume_in_period == 0.0 {
-            return false;
-        }
-        let total_added = self.level_total_added(price, period) as f32;
-        total_added > average_volume_in_period * threshold
+    fn level_quantity_spikes(&self, price: Price, period: Period, threshold: f32) -> &Vec<LevelUpdated> {
+        let avg_quantity = self.level_average_quantity(price, period);
+        self
+            .ticks
+            .get(&price)
+            .unwrap()
+            .iter()
+            .filter(|x| true);
+        
     }
 }
 
-pub struct OrderBook {
+pub struct OrderBookRealization {
     bids: BookSideRealization,
     asks: BookSideRealization,
 }
 
-impl OrderBook {
+impl OrderBookRealization {
     pub fn new() -> Self {
         Self {
             bids: BookSideRealization::new(Side::Buy),
@@ -219,7 +221,7 @@ impl OrderBook {
     }
 }
 
-impl OrderBookFlowMetrics for OrderBook {
+impl OrderBook for OrderBookRealization {
     fn bids(&self) -> &dyn BookSide {
         &self.bids
     }

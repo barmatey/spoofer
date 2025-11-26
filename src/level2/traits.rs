@@ -12,10 +12,15 @@ pub trait BookSide {
     fn level_total_cancelled(&self, price: Price, period: Period) -> Quantity;
     fn level_add_rate(&self, price: Price, period: Period) -> f32;
     fn level_cancel_rate(&self, price: Price, period: Period) -> f32;
-    fn level_volume_spike(&self, price: Price, period: Period, threshold: f32) -> bool;
+    fn level_quantity_spikes(
+        &self,
+        price: Price,
+        period: Period,
+        threshold: f32,
+    ) -> &Vec<LevelUpdated>;
 }
 
-pub trait OrderBookFlowMetrics {
+pub trait OrderBook {
     fn bids(&self) -> &dyn BookSide;
     fn asks(&self) -> &dyn BookSide;
     fn get_side(&self, side: Side) -> &dyn BookSide;

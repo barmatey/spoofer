@@ -8,7 +8,7 @@ pub type TimestampMS = u64;
 
 pub type Period = (TimestampMS, TimestampMS);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Side {
     Buy,
     Sell,
