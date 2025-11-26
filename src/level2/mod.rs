@@ -4,7 +4,7 @@ mod order_book;
 mod traits;
 mod errors;
 
-pub use order_book::{OrderBook, display_order_book};
+pub use order_book::{OrderBook};
 
 pub use events::LevelUpdated;
 

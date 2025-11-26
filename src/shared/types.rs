@@ -1,5 +1,5 @@
-pub type Price = u128;
-pub type Quantity = u128;
+pub type Price = u64;
+pub type Quantity = u64;
 
 pub type TimestampMS = u64;
 
