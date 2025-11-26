@@ -1,5 +1,6 @@
-use crate::domain::events::{LevelUpdated, Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
+use crate::level2::events::LevelUpdated;
+use crate::shared::{Price, Quantity, Side};
 
 struct BookSide {
     order: BTreeMap<Price, ()>,

@@ -1,5 +1,5 @@
-use spoofing::domain::{BookStats, Snap};
-use spoofing::domain::events::Side;
+use spoofing::level2::{BookStats, Snap};
+use spoofing::shared::Side;
 
 #[test]
 fn test_get_average_quantity() {

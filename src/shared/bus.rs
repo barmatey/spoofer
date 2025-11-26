@@ -1,5 +1,6 @@
-use crate::domain::events::{LevelUpdated, TradeEvent};
 use crossbeam::queue::SegQueue;
+use crate::level2::LevelUpdated;
+use crate::trade::TradeEvent;
 
 pub struct Topic<T: Send + Sync> {
     events: SegQueue<T>,

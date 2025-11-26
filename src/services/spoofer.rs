@@ -1,5 +1,5 @@
-use crate::domain::events::{LevelUpdated, Price, TimestampMS};
-use crate::domain::{BookStats, OrderBook};
+use crate::level2::{BookStats, OrderBook};
+use crate::shared::{Price, TimestampMS};
 
 pub struct SpooferDetected {
     pub price: Price,

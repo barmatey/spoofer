@@ -1,4 +1,4 @@
-use crate::domain::events::{Quantity, Side, TimestampMS};
+use crate::shared::{Quantity, Side, TimestampMS};
 
 #[derive(Debug)]
 pub enum BookStatsError {

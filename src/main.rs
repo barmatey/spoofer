@@ -1,12 +1,14 @@
-use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
-use crate::domain::events::Side;
-use crate::domain::{display_order_book, OrderBook, BookStats, Snap};
-use crate::services::bus::Bus;
+use crate::connector::{BinanceConnector, BinanceConnectorConfig, Connector};
 use std::time::Duration;
+use crate::level2::{display_order_book, BookStats, OrderBook, Snap};
+use crate::shared::{Bus, Side};
 
-mod connectors;
-mod domain;
+mod connector;
+mod shared;
 mod services;
+
+mod trade;
+mod level2;
 
 #[tokio::main]
 async fn main() {
