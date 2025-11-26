@@ -19,7 +19,9 @@ impl TradeStats {
             .position(|t| t.timestamp < threshold)
             .unwrap_or(self.trades.len());
 
-        self.trades = self.trades.split_off(idx);
+        if idx > 0 {
+            self.trades = self.trades.split_off(idx);
+        }
     }
 
 
