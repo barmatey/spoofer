@@ -1,81 +1,75 @@
-use std::collections::{BTreeMap, HashMap};
 use crate::level2::events::LevelUpdated;
-use crate::shared::{Price, Quantity, Side};
+use crate::level2::Level2Error;
+use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
+use std::collections::HashMap;
+use crate::shared::datetime::now_timestamp;
 
 struct BookSide {
-    order: BTreeMap<Price, ()>,
-    levels: HashMap<Price, Quantity>,
+    ticks: HashMap<Price, Vec<LevelUpdated>>,
     side: Side,
 }
 
 impl BookSide {
     pub fn new(side: Side) -> Self {
         Self {
-            order: BTreeMap::new(),
-            levels: HashMap::new(),
+            ticks: HashMap::new(),
             side,
         }
     }
 
-    pub fn update(&mut self, price: Price, quantity: Quantity) {
-        if quantity == 0 {
-            self.levels.remove(&price);
-            self.order.remove(&price);
-        } else {
-            let is_new = !self.levels.contains_key(&price);
-            self.levels.insert(price, quantity);
-            if is_new {
-                self.order.insert(price, ());
-            }
+    pub fn handle_level_updated(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+        // Check side
+        if event.side != self.side {
+            return Err(Level2Error::IncompatibleSide);
         }
+
+        // Check timestamp
+        if self
+            .ticks
+            .get(&event.price)
+            .and_then(|v| v.last())
+            .map_or(false, |last| event.timestamp < last.timestamp)
+        {
+            return Err(Level2Error::OutdatedEvent);
+        }
+
+        // Push event
+        self.ticks
+            .entry(event.price)
+            .or_insert_with(Vec::new)
+            .push(event);
+
+        Ok(())
     }
 
-    pub fn get_best(&self) -> Option<(Price, Quantity)> {
-        match self.side {
-            Side::Buy => self
-                .order
-                .iter()
-                .next_back()
-                .and_then(|(&price, _)| self.levels.get(&price).map(|&q| (price, q))),
-            Side::Sell => self
-                .order
-                .iter()
-                .next()
-                .and_then(|(&price, _)| self.levels.get(&price).map(|&q| (price, q))),
-        }
+    pub fn current_quantity(&self, price: Price) -> Quantity {
+        self.ticks
+            .get(&price)
+            .and_then(|v| v.last())
+            .map_or(0, |last| last.quantity)
     }
 
-    pub fn get_position(&self, price: Price) -> Option<usize> {
-        if !self.levels.contains_key(&price) {
-            return None;
-        }
+    pub fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
+        let events = self.ticks.get(&price)?;
+        let (start_ts, end_ts) = period;
 
-        let mut pos: usize = 0;
+        // Найти первое ненулевое
+        let first_nonzero = events.iter()
+            .find(|ev| ev.timestamp >= start_ts && ev.timestamp < end_ts && ev.quantity > 0)
+            .map(|ev| ev.timestamp)?;
 
-        match self.side {
-            Side::Buy => {
-                // Bid: идем от максимальной цены к минимальной
-                for &p in self.order.keys().rev() {
-                    if p == price {
-                        return Some(pos);
-                    }
-                    pos += 1;
-                }
-            }
-            Side::Sell => {
-                // Ask: идем от минимальной цены к максимальной
-                for &p in self.order.keys() {
-                    if p == price {
-                        return Some(pos);
-                    }
-                    pos += 1;
-                }
-            }
-        }
+        // Найти последнее ненулевое
+        let last_nonzero = events.iter().rev()
+            .find(|ev| ev.timestamp >= start_ts && ev.timestamp < end_ts && ev.quantity > 0)
+            .map(|ev| ev.timestamp)?;
 
-        None
+        Some(last_nonzero.saturating_sub(first_nonzero))
     }
+
 }
+
+
+
 
 pub struct OrderBook {
     bids: BookSide,

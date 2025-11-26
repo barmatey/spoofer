@@ -3,7 +3,9 @@ pub type Quantity = u128;
 
 pub type TimestampMS = u64;
 
-#[derive(Debug, Clone)]
+pub type Period = (TimestampMS, TimestampMS);
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Side {
     Buy,
     Sell,
