@@ -22,7 +22,8 @@ async fn main() {
 
         loop {
             let events = bus.levels.pull();
-            order_book.update(&events);
+
+            order_book.handle_level_updated(&events);
 
             for s in events
                 .iter()
