@@ -22,6 +22,10 @@ impl TradeStats {
         todo!()
     }
 
+    pub fn get_last_price(&self) -> Price {
+        todo!()
+    }
+
     pub fn get_min_price(&self) -> Price {
         todo!()
     }
