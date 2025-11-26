@@ -2,7 +2,7 @@ use crate::domain::events::{LevelUpdated, Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
 
 struct BookSide {
-    active: BTreeMap<Price, ()>,
+    order: BTreeMap<Price, ()>,
     levels: HashMap<Price, Quantity>,
     side: Side,
 }
@@ -10,7 +10,7 @@ struct BookSide {
 impl BookSide {
     pub fn new(side: Side) -> Self {
         Self {
-            active: BTreeMap::new(),
+            order: BTreeMap::new(),
             levels: HashMap::new(),
             side,
         }
@@ -20,12 +20,12 @@ impl BookSide {
     pub fn update(&mut self, price: Price, quantity: Quantity) {
         if quantity == 0 {
             self.levels.remove(&price);
-            self.active.remove(&price);
+            self.order.remove(&price);
         } else {
             let is_new = !self.levels.contains_key(&price);
             self.levels.insert(price, quantity);
             if is_new {
-                self.active.insert(price, ());
+                self.order.insert(price, ());
             }
         }
     }
@@ -34,12 +34,12 @@ impl BookSide {
     pub fn get_best(&self) -> Option<(Price, Quantity)> {
         match self.side {
             Side::Buy => self
-                .active
+                .order
                 .iter()
                 .next_back()
                 .and_then(|(&price, _)| self.levels.get(&price).map(|&q| (price, q))),
             Side::Sell => self
-                .active
+                .order
                 .iter()
                 .next()
                 .and_then(|(&price, _)| self.levels.get(&price).map(|&q| (price, q))),
@@ -57,7 +57,7 @@ impl BookSide {
         match self.side {
             Side::Buy => {
                 // Bid: идем от максимальной цены к минимальной
-                for &p in self.active.keys().rev() {
+                for &p in self.order.keys().rev() {
                     if p == price {
                         return Some(pos);
                     }
@@ -66,7 +66,7 @@ impl BookSide {
             }
             Side::Sell => {
                 // Ask: идем от минимальной цены к максимальной
-                for &p in self.active.keys() {
+                for &p in self.order.keys() {
                     if p == price {
                         return Some(pos);
                     }
@@ -134,7 +134,7 @@ pub fn display_order_book(order_book: &OrderBook, depth: usize) {
     // 🔹 Соберём BID
     let mut bids: Vec<(Price, Quantity)> = order_book
         .bids
-        .active
+        .order
         .iter()
         .rev()
         .filter_map(|(&p, _)| order_book.bids.levels.get(&p).map(|&q| (p, q)))
@@ -144,7 +144,7 @@ pub fn display_order_book(order_book: &OrderBook, depth: usize) {
     // 🔹 Соберём ASK
     let mut asks: Vec<(Price, Quantity)> = order_book
         .asks
-        .active
+        .order
         .iter()
         .filter_map(|(&p, _)| order_book.asks.levels.get(&p).map(|&q| (p, q)))
         .take(depth)
