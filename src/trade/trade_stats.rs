@@ -1,5 +1,6 @@
 use crate::shared::datetime::now_timestamp;
 use crate::shared::{Price, Quantity, TimestampMS};
+use crate::trade::errors::TradeError;
 use crate::trade::TradeEvent;
 
 pub struct TradeStats {
@@ -12,15 +13,15 @@ impl TradeStats {
 
     fn actualize_trades(&mut self) {
         let threshold = now_timestamp().saturating_sub(self.period);
-        let mut i = 0;
-        for trade in self.trades.iter() {
-            if trade.timestamp < threshold {
-                break;
-            }
-            i += 1;
-        }
-        self.trades = self.trades[i..].to_vec()
+
+        let idx = self.trades
+            .iter()
+            .position(|t| t.timestamp < threshold)
+            .unwrap_or(self.trades.len());
+
+        self.trades = self.trades.split_off(idx);
     }
+
 
     pub fn get_traded_quantity(&self, price: Price) -> Quantity {
         todo!()
@@ -34,9 +35,13 @@ impl TradeStats {
         todo!()
     }
 
-    pub fn handle_trade_events(&mut self, events: &[TradeEvent]) {
+    pub fn handle_trade_events(&mut self, events: &[TradeEvent]) -> Result<(), TradeError> {
         for ev in events {
+            if ev.timestamp < self.trades.last().map(|x| x.timestamp).unwrap_or(0) {
+                return Err(TradeError::TimestampError);
+            }
             self.trades.push(ev.clone());
         }
+        Ok(())
     }
 }
