@@ -5,7 +5,7 @@ use crate::shared::{Bus, Side};
 
 mod connector;
 mod shared;
-mod spoofer;
+mod signal;
 
 mod trade;
 mod level2;
