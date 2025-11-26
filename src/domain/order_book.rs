@@ -1,13 +1,13 @@
 use crate::domain::events::{LevelUpdated, Price, Quantity, Side};
 use std::collections::{BTreeMap, HashMap};
 
-struct Level {
+struct BookSide {
     active: BTreeMap<Price, ()>,
     levels: HashMap<Price, Quantity>,
     side: Side,
 }
 
-impl Level {
+impl BookSide {
     pub fn new(side: Side) -> Self {
         Self {
             active: BTreeMap::new(),
@@ -80,15 +80,15 @@ impl Level {
 }
 
 pub struct OrderBook {
-    bids: Level,
-    asks: Level,
+    bids: BookSide,
+    asks: BookSide,
 }
 
 impl OrderBook {
     pub fn new() -> Self {
         Self {
-            bids: Level::new(Side::Buy),
-            asks: Level::new(Side::Sell),
+            bids: BookSide::new(Side::Buy),
+            asks: BookSide::new(Side::Sell),
         }
     }
     pub fn get_best_bid(&self) -> Option<(Price, Quantity)> {
