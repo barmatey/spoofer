@@ -17,7 +17,6 @@ impl BookSide {
         }
     }
 
-    /// Обновление уровня: если quantity=0, удаляем
     pub fn update(&mut self, price: Price, quantity: Quantity) {
         if quantity == 0 {
             self.levels.remove(&price);
@@ -31,7 +30,6 @@ impl BookSide {
         }
     }
 
-    /// Лучший уровень (максимальная цена для BID, минимальная для ASK)
     pub fn get_best(&self) -> Option<(Price, Quantity)> {
         match self.side {
             Side::Buy => self
@@ -47,7 +45,6 @@ impl BookSide {
         }
     }
 
-    /// Позиция уровня: 0 = лучший, 1 = следующий и т.д.
     pub fn get_position(&self, price: Price) -> Option<usize> {
         if !self.levels.contains_key(&price) {
             return None;

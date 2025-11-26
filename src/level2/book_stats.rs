@@ -97,7 +97,13 @@ impl BookStats {
             Side::Sell => self.asks.push(snap),
         }
     }
-
+    pub fn get_add_rate(
+        &self,
+        side: Side,
+        level: usize,
+    )-> Result<f64, BookStatsError>{
+        todo!()
+    }
     pub fn get_average_quantity(
         &self,
         side: Side,
