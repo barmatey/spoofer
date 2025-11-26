@@ -1,6 +1,6 @@
 use crate::shared::{Price, Quantity, TimestampMS};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TradeEvent {
     pub price: Price,
     pub quantity: Quantity,
