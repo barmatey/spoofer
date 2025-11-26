@@ -1,7 +1,7 @@
 use crate::domain::events::{Quantity, Side, TimestampMS};
 
 #[derive(Debug)]
-pub enum SnapError {
+pub enum BookStatsError {
     DeepError,
     SortError,
 }
@@ -25,14 +25,14 @@ impl Track {
         }
         Self { snaps }
     }
-    pub fn push(&mut self, snap: Snap) -> Result<(), SnapError> {
+    pub fn push(&mut self, snap: Snap) -> Result<(), BookStatsError> {
         if snap.level >= self.snaps.len() {
-            return Err(SnapError::DeepError);
+            return Err(BookStatsError::DeepError);
         }
 
         if let Some(last_snap) = self.snaps[snap.level].last() {
             if snap.timestamp < last_snap.timestamp {
-                return Err(SnapError::SortError);
+                return Err(BookStatsError::SortError);
             }
         }
 
@@ -44,9 +44,9 @@ impl Track {
         &self,
         level: usize,
         period: TimestampMS,
-    ) -> Result<u128, SnapError> {
+    ) -> Result<u128, BookStatsError> {
         if level >= self.snaps.len() {
-            return Err(SnapError::DeepError);
+            return Err(BookStatsError::DeepError);
         }
 
         let snaps = &self.snaps[level];
@@ -91,7 +91,7 @@ impl BookStats {
         }
     }
 
-    pub fn push(&mut self, snap: Snap) -> Result<(), SnapError> {
+    pub fn push(&mut self, snap: Snap) -> Result<(), BookStatsError> {
         match snap.side {
             Side::Buy => self.bids.push(snap),
             Side::Sell => self.asks.push(snap),
@@ -103,7 +103,7 @@ impl BookStats {
         side: Side,
         level: usize,
         period: TimestampMS,
-    ) -> Result<u128, SnapError> {
+    ) -> Result<u128, BookStatsError> {
         match side {
             Side::Buy => self.bids.get_average_quantity(level, period),
             Side::Sell => self.asks.get_average_quantity(level, period),
