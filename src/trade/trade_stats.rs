@@ -13,17 +13,10 @@ impl TradeStats {
 
     fn actualize_trades(&mut self) {
         let threshold = now_timestamp().saturating_sub(self.period);
-
-        let idx = self.trades
-            .iter()
-            .position(|t| t.timestamp < threshold)
-            .unwrap_or(self.trades.len());
-
-        if idx > 0 {
+        if let Some(idx) = self.trades.iter().position(|t| t.timestamp < threshold) {
             self.trades = self.trades.split_off(idx);
         }
     }
-
 
     pub fn get_traded_quantity(&self, price: Price) -> Quantity {
         todo!()
