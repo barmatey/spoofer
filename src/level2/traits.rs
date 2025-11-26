@@ -7,17 +7,17 @@ pub trait OrderBookFlowMetrics {
     // ======================
     //  Snapshots
     // ======================
-    fn current_quantity(&self, price: Price, side: Side) -> Quantity;
-    fn current_book_pressure(&self, side: Side, depth: usize) -> f32;
+    fn quantity(&self, price: Price, side: Side) -> Quantity;
+    fn book_pressure(&self, side: Side, depth: usize) -> f32;
 
     // ======================
     //  Stat Metrics
     // ======================
     fn level_lifetime(&self, price: Price, side: Side, period: Period) -> Option<TimestampMS>;
-    fn avg_quantity(&self, price: Price, side: Side, period: Period) -> Quantity;
-    fn total_added(&self, price: Price, side: Side, period: Period) -> Quantity;
-    fn total_cancelled(&self, price: Price, side: Side, period: Period) -> Quantity;
-    fn add_rate(&self, price: Price, side: Side, period: Period) -> f32;
-    fn cancel_rate(&self, price: Price, side: Side, period: Period) -> f32;
-    fn is_volume_spike(&self, price: Price, side: Side, period: Period, threshold: f32) -> bool;
+    fn level_avg_quantity(&self, price: Price, side: Side, period: Period) -> Quantity;
+    fn level_total_added(&self, price: Price, side: Side, period: Period) -> Quantity;
+    fn level_total_cancelled(&self, price: Price, side: Side, period: Period) -> Quantity;
+    fn level_add_rate(&self, price: Price, side: Side, period: Period) -> f32;
+    fn level_cancel_rate(&self, price: Price, side: Side, period: Period) -> f32;
+    fn level_volume_spike(&self, price: Price, side: Side, period: Period, threshold: f32) -> bool;
 }

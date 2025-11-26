@@ -221,14 +221,14 @@ impl OrderBookFlowMetrics for OrderBook {
         }
     }
 
-    fn current_quantity(&self, price: Price, side: Side) -> Quantity {
+    fn quantity(&self, price: Price, side: Side) -> Quantity {
         match side {
             Side::Buy => self.bids.current_quantity(price),
             Side::Sell => self.asks.current_quantity(price),
         }
     }
 
-    fn current_book_pressure(&self, side: Side, depth: usize) -> f32 {
+    fn book_pressure(&self, side: Side, depth: usize) -> f32 {
         let (own, opposite) = match side {
             Side::Buy => (&self.bids, &self.asks),
             Side::Sell => (&self.asks, &self.bids),
@@ -248,42 +248,42 @@ impl OrderBookFlowMetrics for OrderBook {
         }
     }
 
-    fn avg_quantity(&self, price: Price, side: Side, period: Period) -> Quantity {
+    fn level_avg_quantity(&self, price: Price, side: Side, period: Period) -> Quantity {
         match side {
             Side::Buy => self.bids.avg_quantity(price, period),
             Side::Sell => self.asks.avg_quantity(price, period),
         }
     }
 
-    fn total_added(&self, price: Price, side: Side, period: Period) -> Quantity {
+    fn level_total_added(&self, price: Price, side: Side, period: Period) -> Quantity {
         match side {
             Side::Buy => self.bids.total_added(price, period),
             Side::Sell => self.asks.total_added(price, period),
         }
     }
 
-    fn total_cancelled(&self, price: Price, side: Side, period: Period) -> Quantity {
+    fn level_total_cancelled(&self, price: Price, side: Side, period: Period) -> Quantity {
         match side {
             Side::Buy => self.bids.total_cancelled(price, period),
             Side::Sell => self.asks.total_cancelled(price, period),
         }
     }
 
-    fn add_rate(&self, price: Price, side: Side, period: Period) -> f32 {
+    fn level_add_rate(&self, price: Price, side: Side, period: Period) -> f32 {
         match side {
             Side::Buy => self.bids.add_rate(price, period),
             Side::Sell => self.asks.add_rate(price, period),
         }
     }
 
-    fn cancel_rate(&self, price: Price, side: Side, period: Period) -> f32 {
+    fn level_cancel_rate(&self, price: Price, side: Side, period: Period) -> f32 {
         match side {
             Side::Buy => self.bids.cancel_rate(price, period),
             Side::Sell => self.asks.cancel_rate(price, period),
         }
     }
 
-    fn is_volume_spike(&self, price: Price, side: Side, period: Period, threshold: f32) -> bool {
+    fn level_volume_spike(&self, price: Price, side: Side, period: Period, threshold: f32) -> bool {
         match side {
             Side::Buy => self.bids.is_volume_spike(price, period, threshold),
             Side::Sell => self.asks.is_volume_spike(price, period, threshold),
