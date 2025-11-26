@@ -8,7 +8,7 @@ pub trait OrderBookFlowMetrics {
     //  Snapshots
     // ======================
     fn current_quantity(&self, price: Price, side: Side) -> Quantity;
-    fn book_pressure(&self, side: Side, depth: usize) -> f32;
+    fn current_book_pressure(&self, side: Side, depth: usize) -> f32;
 
     // ======================
     //  Stat Metrics

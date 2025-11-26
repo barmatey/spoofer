@@ -2,10 +2,11 @@ use crate::level2::events::LevelUpdated;
 use crate::level2::traits::OrderBookFlowMetrics;
 use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
+    sorted_prices: BTreeSet<Price>,
     side: Side,
 }
 
@@ -13,17 +14,18 @@ impl BookSide {
     pub fn new(side: Side) -> Self {
         Self {
             ticks: HashMap::new(),
+            sorted_prices: BTreeSet::new(),
             side,
         }
     }
 
     pub fn handle_level_updated(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
-        // Check side
+        // Check event side
         if event.side != self.side {
             return Err(Level2Error::IncompatibleSide);
         }
 
-        // Check timestamp
+        // Check event Timestamp
         if self
             .ticks
             .get(&event.price)
@@ -33,13 +35,32 @@ impl BookSide {
             return Err(Level2Error::OutdatedEvent);
         }
 
-        // Push event
+        // Create price level if necessary
+        if !self.ticks.contains_key(&event.price) {
+            self.sorted_prices.insert(event.price);
+        }
+
         self.ticks
             .entry(event.price)
             .or_insert_with(Vec::new)
             .push(event);
 
         Ok(())
+    }
+    pub fn current_quantity_from_top_levels(&self, depth: usize) -> Quantity {
+        let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
+            Side::Buy => Box::new(self.sorted_prices.iter().rev()),
+            Side::Sell => Box::new(self.sorted_prices.iter()),
+        };
+
+        iter.take(depth)
+            .map(|price| {
+                self.ticks
+                    .get(price)
+                    .and_then(|v| v.last())
+                    .map_or(0, |ev| ev.quantity)
+            })
+            .sum()
     }
 
     pub fn current_quantity(&self, price: Price) -> Quantity {
@@ -207,8 +228,17 @@ impl OrderBookFlowMetrics for OrderBook {
         }
     }
 
-    fn book_pressure(&self, side: Side, depth: usize) -> f32 {
-        todo!()
+    fn current_book_pressure(&self, side: Side, depth: usize) -> f32 {
+        let (own, opposite) = match side {
+            Side::Buy => (&self.bids, &self.asks),
+            Side::Sell => (&self.asks, &self.bids),
+        };
+
+        let sum_own = own.current_quantity_from_top_levels(depth);
+        let sum_opposite = opposite.current_quantity_from_top_levels(depth);
+        let total = sum_own + sum_opposite;
+
+        if total == 0 { 0.5 } else { sum_own as f32 / total as f32 }
     }
 
     fn level_lifetime(&self, price: Price, side: Side, period: Period) -> Option<TimestampMS> {
