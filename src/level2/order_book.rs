@@ -1,16 +1,16 @@
 use crate::level2::events::LevelUpdated;
-use crate::level2::traits::OrderBookFlowMetrics;
+use crate::level2::traits::{BookSide, OrderBookFlowMetrics};
 use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use std::collections::{BTreeSet, HashMap};
 
-struct BookSide {
+struct BookSideRealization {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
     sorted_prices: BTreeSet<Price>,
     side: Side,
 }
 
-impl BookSide {
+impl BookSideRealization {
     pub fn new(side: Side) -> Self {
         Self {
             ticks: HashMap::new(),
@@ -19,7 +19,7 @@ impl BookSide {
         }
     }
 
-    pub fn handle_level_updated(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         // Check event side
         if event.side != self.side {
             return Err(Level2Error::IncompatibleSide);
@@ -46,56 +46,6 @@ impl BookSide {
             .push(event);
 
         Ok(())
-    }
-    pub fn current_quantity_from_top_levels(&self, depth: usize) -> Quantity {
-        let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
-            Side::Buy => Box::new(self.sorted_prices.iter().rev()),
-            Side::Sell => Box::new(self.sorted_prices.iter()),
-        };
-
-        iter.take(depth)
-            .map(|price| {
-                self.ticks
-                    .get(price)
-                    .and_then(|v| v.last())
-                    .map_or(0, |ev| ev.quantity)
-            })
-            .sum()
-    }
-
-    pub fn current_quantity(&self, price: Price) -> Quantity {
-        self.ticks
-            .get(&price)
-            .and_then(|v| v.last())
-            .map_or(0, |last| last.quantity)
-    }
-
-    pub fn avg_quantity(&self, price: Price, period: Period) -> Quantity {
-        let events = match self.ticks.get(&price) {
-            Some(v) => v,
-            None => return 0,
-        };
-
-        let (start_ts, end_ts) = period;
-        let mut sum: Quantity = 0;
-        let mut count: Quantity = 0;
-
-        for ev in events.iter() {
-            if ev.timestamp < start_ts {
-                continue;
-            }
-            if ev.timestamp >= end_ts {
-                break;
-            }
-            sum += ev.quantity;
-            count += 1;
-        }
-
-        if count == 0 {
-            0
-        } else {
-            sum / count
-        }
     }
 
     fn total_change<F>(&self, price: Price, period: Period, compare: F) -> Quantity
@@ -124,54 +74,32 @@ impl BookSide {
 
         total
     }
+}
 
-    pub fn total_added(&self, price: Price, period: Period) -> Quantity {
-        self.total_change(price, period, |current, prev| {
-            if current > prev {
-                current - prev
-            } else {
-                0
-            }
-        })
+impl BookSide for BookSideRealization {
+    fn total_quantity(&self, depth: usize) -> Quantity {
+        let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
+            Side::Buy => Box::new(self.sorted_prices.iter().rev()),
+            Side::Sell => Box::new(self.sorted_prices.iter()),
+        };
+
+        iter.take(depth)
+            .map(|price| {
+                self.ticks
+                    .get(price)
+                    .and_then(|v| v.last())
+                    .map_or(0, |ev| ev.quantity)
+            })
+            .sum()
+    }
+    fn level_quantity(&self, price: Price) -> Quantity {
+        self.ticks
+            .get(&price)
+            .and_then(|v| v.last())
+            .map_or(0, |last| last.quantity)
     }
 
-    pub fn total_cancelled(&self, price: Price, period: Period) -> Quantity {
-        self.total_change(price, period, |current, prev| {
-            if current < prev {
-                prev - current
-            } else {
-                0
-            }
-        })
-    }
-
-    pub fn add_rate(&self, price: Price, period: Period) -> f32 {
-        let total_added = self.total_added(price, period);
-
-        let (start_ts, end_ts) = period;
-        let duration = end_ts.saturating_sub(start_ts);
-
-        if duration == 0 {
-            0.0
-        } else {
-            total_added as f32 / duration as f32
-        }
-    }
-
-    pub fn cancel_rate(&self, price: Price, period: Period) -> f32 {
-        let total_cancelled = self.total_cancelled(price, period);
-
-        let (start_ts, end_ts) = period;
-        let duration = end_ts.saturating_sub(start_ts);
-
-        if duration == 0 {
-            0.0
-        } else {
-            total_cancelled as f32 / duration as f32
-        }
-    }
-
-    pub fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
+    fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
         let events = self.ticks.get(&price)?;
         let (start_ts, end_ts) = period;
 
@@ -189,104 +117,121 @@ impl BookSide {
         Some(last_nonzero.saturating_sub(first_nonzero))
     }
 
-    pub fn is_volume_spike(&self, price: Price, period: Period, threshold: f32) -> bool {
-        let average_volume_in_period = self.avg_quantity(price, period) as f32;
+    fn level_average_quantity(&self, price: Price, period: Period) -> Quantity {
+        let events = match self.ticks.get(&price) {
+            Some(v) => v,
+            None => return 0,
+        };
+
+        let (start_ts, end_ts) = period;
+        let mut sum: Quantity = 0;
+        let mut count: Quantity = 0;
+
+        for ev in events.iter() {
+            if ev.timestamp < start_ts {
+                continue;
+            }
+            if ev.timestamp >= end_ts {
+                break;
+            }
+            sum += ev.quantity;
+            count += 1;
+        }
+
+        if count == 0 {
+            0
+        } else {
+            sum / count
+        }
+    }
+
+    fn level_total_added(&self, price: Price, period: Period) -> Quantity {
+        self.total_change(price, period, |current, prev| {
+            if current > prev {
+                current - prev
+            } else {
+                0
+            }
+        })
+    }
+
+    fn level_total_cancelled(&self, price: Price, period: Period) -> Quantity {
+        self.total_change(price, period, |current, prev| {
+            if current < prev {
+                prev - current
+            } else {
+                0
+            }
+        })
+    }
+
+    fn level_add_rate(&self, price: Price, period: Period) -> f32 {
+        let total_added = self.level_total_added(price, period);
+
+        let (start_ts, end_ts) = period;
+        let duration = end_ts.saturating_sub(start_ts);
+
+        if duration == 0 {
+            0.0
+        } else {
+            total_added as f32 / duration as f32
+        }
+    }
+
+    fn level_cancel_rate(&self, price: Price, period: Period) -> f32 {
+        let total_cancelled = self.level_total_cancelled(price, period);
+
+        let (start_ts, end_ts) = period;
+        let duration = end_ts.saturating_sub(start_ts);
+
+        if duration == 0 {
+            0.0
+        } else {
+            total_cancelled as f32 / duration as f32
+        }
+    }
+
+    fn level_volume_spike(&self, price: Price, period: Period, threshold: f32) -> bool {
+        let average_volume_in_period = self.level_average_quantity(price, period) as f32;
         if average_volume_in_period == 0.0 {
             return false;
         }
-        let total_added = self.total_added(price, period) as f32;
+        let total_added = self.level_total_added(price, period) as f32;
         total_added > average_volume_in_period * threshold
     }
 }
 
 pub struct OrderBook {
-    bids: BookSide,
-    asks: BookSide,
+    bids: BookSideRealization,
+    asks: BookSideRealization,
 }
 
 impl OrderBook {
     pub fn new() -> Self {
         Self {
-            bids: BookSide::new(Side::Buy),
-            asks: BookSide::new(Side::Sell),
+            bids: BookSideRealization::new(Side::Buy),
+            asks: BookSideRealization::new(Side::Sell),
         }
     }
 }
 
 impl OrderBookFlowMetrics for OrderBook {
-    fn handle_level_updated(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    fn bids(&self) -> &dyn BookSide {
+        &self.bids
+    }
+
+    fn asks(&self) -> &dyn BookSide {
+        &self.asks
+    }
+
+    fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         match event.side {
-            Side::Buy => self.bids.handle_level_updated(event),
-            Side::Sell => self.asks.handle_level_updated(event),
+            Side::Buy => self.bids.update(event),
+            Side::Sell => self.asks.update(event),
         }
     }
 
-    fn quantity(&self, price: Price, side: Side) -> Quantity {
-        match side {
-            Side::Buy => self.bids.current_quantity(price),
-            Side::Sell => self.asks.current_quantity(price),
-        }
-    }
-
-    fn book_pressure(&self, side: Side, depth: usize) -> f32 {
-        let (own, opposite) = match side {
-            Side::Buy => (&self.bids, &self.asks),
-            Side::Sell => (&self.asks, &self.bids),
-        };
-
-        let sum_own = own.current_quantity_from_top_levels(depth);
-        let sum_opposite = opposite.current_quantity_from_top_levels(depth);
-        let total = sum_own + sum_opposite;
-
-        if total == 0 { 0.5 } else { sum_own as f32 / total as f32 }
-    }
-
-    fn level_lifetime(&self, price: Price, side: Side, period: Period) -> Option<TimestampMS> {
-        match side {
-            Side::Buy => self.bids.level_lifetime(price, period),
-            Side::Sell => self.asks.level_lifetime(price, period),
-        }
-    }
-
-    fn level_avg_quantity(&self, price: Price, side: Side, period: Period) -> Quantity {
-        match side {
-            Side::Buy => self.bids.avg_quantity(price, period),
-            Side::Sell => self.asks.avg_quantity(price, period),
-        }
-    }
-
-    fn level_total_added(&self, price: Price, side: Side, period: Period) -> Quantity {
-        match side {
-            Side::Buy => self.bids.total_added(price, period),
-            Side::Sell => self.asks.total_added(price, period),
-        }
-    }
-
-    fn level_total_cancelled(&self, price: Price, side: Side, period: Period) -> Quantity {
-        match side {
-            Side::Buy => self.bids.total_cancelled(price, period),
-            Side::Sell => self.asks.total_cancelled(price, period),
-        }
-    }
-
-    fn level_add_rate(&self, price: Price, side: Side, period: Period) -> f32 {
-        match side {
-            Side::Buy => self.bids.add_rate(price, period),
-            Side::Sell => self.asks.add_rate(price, period),
-        }
-    }
-
-    fn level_cancel_rate(&self, price: Price, side: Side, period: Period) -> f32 {
-        match side {
-            Side::Buy => self.bids.cancel_rate(price, period),
-            Side::Sell => self.asks.cancel_rate(price, period),
-        }
-    }
-
-    fn level_volume_spike(&self, price: Price, side: Side, period: Period, threshold: f32) -> bool {
-        match side {
-            Side::Buy => self.bids.is_volume_spike(price, period, threshold),
-            Side::Sell => self.asks.is_volume_spike(price, period, threshold),
-        }
+    fn bid_ask_pressure(&self, depth: usize) -> f32 {
+        todo!()
     }
 }
