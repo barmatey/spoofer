@@ -1,6 +1,6 @@
 mod order_book;
 pub mod events;
-mod order_stat;
+mod book_stats;
 
 pub use order_book::{OrderBook, display_order_book};
-pub use order_stat::{Snap, OrderStat};
+pub use book_stats::{Snap, BookStats};

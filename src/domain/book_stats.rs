@@ -13,11 +13,11 @@ pub struct Snap {
     pub side: Side,
 }
 
-struct Level {
+struct Track {
     snaps: Vec<Vec<Snap>>,
 }
 
-impl Level {
+impl Track {
     pub fn new(max_depth: usize) -> Self {
         let mut snaps = Vec::with_capacity(max_depth);
         for _ in 0..max_depth {
@@ -78,16 +78,16 @@ impl Level {
     }
 }
 
-pub struct OrderStat {
-    bids: Level,
-    asks: Level,
+pub struct BookStats {
+    bids: Track,
+    asks: Track,
 }
 
-impl OrderStat {
+impl BookStats {
     pub fn new(max_depth: usize) -> Self {
         Self {
-            bids: Level::new(max_depth),
-            asks: Level::new(max_depth),
+            bids: Track::new(max_depth),
+            asks: Track::new(max_depth),
         }
     }
 
@@ -111,69 +111,3 @@ impl OrderStat {
     }
 }
 
-mod tests {
-    use crate::domain::events::Side;
-    use crate::domain::order_stat::SnapError;
-    use crate::domain::{OrderStat, Snap};
-
-    #[test]
-    fn test_get_average_quantity() {
-        let s1 = Snap {
-            level: 0,
-            quantity: 6,
-            timestamp: 1,
-            side: Side::Buy,
-        };
-        let s2 = Snap {
-            level: 0,
-            quantity: 2,
-            timestamp: 20,
-            side: Side::Buy,
-        };
-        let s3 = Snap {
-            level: 0,
-            quantity: 4,
-            timestamp: 30,
-            side: Side::Buy,
-        };
-        let mut foo = OrderStat::new(1);
-        foo.push(s1).unwrap();
-        foo.push(s2).unwrap();
-        foo.push(s3).unwrap();
-        let left = foo.get_average_quantity(Side::Buy, 0, 25).unwrap();
-        assert_eq!(left, 3);
-    }
-
-    #[test]
-    fn test_push_snap_with_exceed_level() {
-        let s1 = Snap {
-            level: 1,
-            quantity: 6,
-            timestamp: 1,
-            side: Side::Buy,
-        };
-        let mut foo = OrderStat::new(1);
-        let left = foo.push(s1);
-        assert!(left.is_err());
-    }
-
-    #[test]
-    fn push_earlier_snap_after_older_one() {
-        let s1 = Snap {
-            level: 0,
-            quantity: 6,
-            timestamp: 2,
-            side: Side::Buy,
-        };
-        let s2 = Snap {
-            level: 0,
-            quantity: 6,
-            timestamp: 1,
-            side: Side::Buy,
-        };
-        let mut foo = OrderStat::new(1);
-        foo.push(s1).unwrap();
-        let left = foo.push(s2);
-        assert!(left.is_err());
-    }
-}

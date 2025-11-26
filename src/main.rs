@@ -1,6 +1,6 @@
 use crate::connectors::{BinanceConnector, BinanceConnectorConfig, Connector};
 use crate::domain::events::Side;
-use crate::domain::{display_order_book, OrderBook, OrderStat, Snap};
+use crate::domain::{display_order_book, OrderBook, BookStats, Snap};
 use crate::services::bus::Bus;
 use std::time::Duration;
 
@@ -18,7 +18,7 @@ async fn main() {
 
     let worker = async || {
         let mut order_book = OrderBook::new();
-        let mut order_stat = OrderStat::new(10);
+        let mut order_stat = BookStats::new(10);
 
         loop {
             let events = bus.levels.pull();
