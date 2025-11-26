@@ -1,13 +1,12 @@
 use crate::level2::{BookStats, OrderBook};
-use crate::shared::{Price, TimestampMS};
 use crate::spoofer::SpooferDetected;
 
-pub struct FindSpoofer<'a> {
+pub struct FindSpoofers<'a> {
     order_book: &'a OrderBook,
     book_stats: &'a BookStats,
 }
 
-impl<'a> FindSpoofer<'a> {
+impl<'a> FindSpoofers<'a> {
     pub fn new(order_book: &'a OrderBook, book_stats: &'a BookStats) -> Self {
         Self {
             order_book,
@@ -15,7 +14,7 @@ impl<'a> FindSpoofer<'a> {
         }
     }
 
-    pub fn execute(&self) -> Result<SpooferDetected, ()> {
+    pub fn execute(&self) -> Result<Vec<SpooferDetected>, ()> {
         todo!()
     }
 }
