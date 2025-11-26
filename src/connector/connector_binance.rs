@@ -1,12 +1,12 @@
 use crate::connector::Connector;
+use crate::level2::LevelUpdated;
+use crate::shared::{Bus, Price, Quantity, Side};
+use crate::trade::TradeEvent;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
-use crate::level2::LevelUpdated;
-use crate::shared::{Bus, Price, Quantity, Side};
-use crate::trade::TradeEvent;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -65,7 +65,11 @@ impl<'a> BinanceConnector<'a> {
             quantity: (trade.quantity.parse::<f32>().unwrap()
                 * self.config.quantity_multiply as f32) as Quantity,
             timestamp: trade.event_time,
-            is_buyer_maker: trade.is_buyer_maker,
+            taker: if trade.is_buyer_maker {
+                Side::Sell
+            } else {
+                Side::Buy
+            },
         }
     }
 

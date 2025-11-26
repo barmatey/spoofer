@@ -1,3 +1,3 @@
 pub enum TradeError{
-    TimestampError,
+    OutdatedEvent,
 }

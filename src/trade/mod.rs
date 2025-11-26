@@ -1,6 +1,6 @@
 mod events;
-mod trade_stats;
+mod trade_store;
 mod errors;
+mod traits;
 
 pub use events::TradeEvent;
-pub use trade_stats::TradeStats;
