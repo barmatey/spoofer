@@ -1,3 +1,4 @@
+use std::ops::Sub;
 use crate::level2::OrderBook;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use crate::trade::TradeStore;
@@ -26,10 +27,10 @@ pub struct FindSpoofersDTO {
 }
 
 struct InnerDTO {
-    average_quantity: f32,
     added_qty: f32,
-    cancelled_qty: f32,
     executed_qty: f32,
+    cancelled_qty: f32,
+    average_quantity: f32,
     side: Side,
     price: Price,
     period: Period,
@@ -58,7 +59,7 @@ impl<'a> FindSpoofers<'a> {
 
         for price in side_book.prices(max_depth) {
             let average_quantity = side_book.level_average_quantity(*price, period);
-            let cancelled_qty = side_book.level_total_cancelled(*price, period) as f32;
+            let cancelled_qty = side_book.level_total_outflow(*price, period) as f32;
             let executed_qty = self.trade_store.level_executed_side(side, *price, period) as f32;
 
             let cancelled_only = (cancelled_qty - executed_qty).max(0.0);
@@ -75,7 +76,7 @@ impl<'a> FindSpoofers<'a> {
 
         if lifetimes.is_empty() {
             // если данных нет, возвращаем какой-то разумный дефолт
-            return 500; // миллисекунд
+            return 5_000; // миллисекунд
         }
 
         lifetimes.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -93,10 +94,11 @@ impl<'a> FindSpoofers<'a> {
         let executed_qty = self
             .trade_store
             .level_executed_side(side, price, dto.period) as f32;
-        let cancelled_qty = self
+        let cancelled_qty: f32 = self
             .order_book
             .get_side(side)
-            .level_total_cancelled(price, dto.period) as f32;
+            .level_total_outflow(price, dto.period)
+            .saturating_sub(executed_qty as Quantity) as f32;
         let average_quantity = self
             .order_book
             .get_side(side)
@@ -107,11 +109,11 @@ impl<'a> FindSpoofers<'a> {
             cancelled_qty,
             price,
             side,
+            average_quantity,
             period: dto.period,
             max_executed_rate: dto.max_executed_rate,
             min_cancel_rate: dto.min_cancel_rate,
             min_score: dto.min_score,
-            average_quantity,
         }
     }
 
@@ -152,11 +154,11 @@ impl<'a> FindSpoofers<'a> {
     }
 
     fn few_orders_were_executed(&self, dto: &InnerDTO) -> bool {
-        dto.executed_qty < dto.added_qty * dto.max_executed_rate
+        todo!()
     }
 
     fn many_orders_were_cancelled(&self, dto: &InnerDTO) -> bool {
-        dto.cancelled_qty > dto.added_qty * dto.min_cancel_rate
+        todo!()
     }
 
     fn is_spoofer_here(&self, dto: &InnerDTO) -> bool {

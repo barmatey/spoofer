@@ -143,7 +143,7 @@ impl BookSide {
         })
     }
 
-    pub fn level_total_cancelled(&self, price: Price, period: Period) -> Quantity {
+    pub fn level_total_outflow(&self, price: Price, period: Period) -> Quantity {
         self.total_change(price, period, |current, prev| {
             if current < prev {
                 prev - current
@@ -151,32 +151,6 @@ impl BookSide {
                 0
             }
         })
-    }
-
-    pub fn level_add_rate(&self, price: Price, period: Period) -> f32 {
-        let total_added = self.level_total_added(price, period);
-
-        let (start_ts, end_ts) = period;
-        let duration = end_ts.saturating_sub(start_ts);
-
-        if duration == 0 {
-            0.0
-        } else {
-            total_added as f32 / duration as f32
-        }
-    }
-
-    pub fn level_cancel_rate(&self, price: Price, period: Period) -> f32 {
-        let total_cancelled = self.level_total_cancelled(price, period);
-
-        let (start_ts, end_ts) = period;
-        let duration = end_ts.saturating_sub(start_ts);
-
-        if duration == 0 {
-            0.0
-        } else {
-            total_cancelled as f32 / duration as f32
-        }
     }
 
     pub fn level_quantity_spikes(
