@@ -1,9 +1,8 @@
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
-use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
-use std::collections::{BTreeSet, HashMap};
+use crate::shared::{Period, Price, Quantity, Side};
 use either::Either;
-
+use std::collections::{BTreeSet, HashMap};
 
 pub struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
@@ -76,7 +75,6 @@ impl BookSide {
         total
     }
 
-
     pub fn prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
         let iter = match self.side {
             Side::Buy => Either::Left(self.sorted_prices.iter().rev()),
@@ -84,7 +82,6 @@ impl BookSide {
         };
         iter.take(depth)
     }
-
 
     pub fn total_quantity(&self, depth: usize) -> Quantity {
         let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
@@ -106,24 +103,6 @@ impl BookSide {
             .get(&price)
             .and_then(|v| v.last())
             .map_or(0, |last| last.quantity)
-    }
-
-    pub fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
-        let events = self.ticks.get(&price)?;
-        let (start_ts, end_ts) = period;
-
-        let first_nonzero = events
-            .iter()
-            .find(|ev| ev.timestamp >= start_ts && ev.timestamp < end_ts && ev.quantity > 0)
-            .map(|ev| ev.timestamp)?;
-
-        let last_nonzero = events
-            .iter()
-            .rev()
-            .find(|ev| ev.timestamp >= start_ts && ev.timestamp < end_ts && ev.quantity > 0)
-            .map(|ev| ev.timestamp)?;
-
-        Some(last_nonzero.saturating_sub(first_nonzero))
     }
 
     pub fn level_average_quantity(&self, price: Price, period: Period) -> f32 {
@@ -212,7 +191,7 @@ impl BookSide {
             .get(&price)
             .into_iter()
             .flat_map(|v| v.iter())
-            .filter(move |x| (x.quantity as f32) > (avg  * threshold))
+            .filter(move |x| (x.quantity as f32) > (avg * threshold))
     }
 }
 
