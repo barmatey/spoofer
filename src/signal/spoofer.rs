@@ -50,11 +50,11 @@ impl<'a> FindSpoofers<'a> {
         let mut result = Vec::new();
 
         for side in dto.sides {
-            let orders = self.order_book.get_side(side);
+            let book = self.order_book.get_side(side);
 
-            for price in orders.prices(dto.max_depth) {
-                let added_qty = orders.level_total_added(*price, dto.period) as f32;
-                let cancelled_qty = orders.level_total_cancelled(*price, dto.period) as f32;
+            for price in book.prices(dto.max_depth) {
+                let added_qty = book.level_total_added(*price, dto.period) as f32;
+                let cancelled_qty = book.level_total_cancelled(*price, dto.period) as f32;
                 let executed_qty =
                     self.trade_store
                         .level_executed_side(side, *price, dto.period) as f32;
@@ -63,7 +63,7 @@ impl<'a> FindSpoofers<'a> {
                     && executed_qty < added_qty * dto.max_executed_rate    // почти нет исполнения
                     && self.price_is_close_to_edge(*price, side, dto.period) // Цена доходила до заявки
                 {
-                    for spike in orders.level_quantity_spikes(
+                    for spike in book.level_quantity_spikes(
                         *price,
                         dto.period,
                         dto.quantity_spike_threshold,

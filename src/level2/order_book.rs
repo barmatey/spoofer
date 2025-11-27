@@ -2,6 +2,8 @@ use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use std::collections::{BTreeSet, HashMap};
+use either::Either;
+
 
 pub struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
@@ -74,9 +76,15 @@ impl BookSide {
         total
     }
 
+
     pub fn prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
-        self.sorted_prices.iter().take(depth)
+        let iter = match self.side {
+            Side::Buy => Either::Left(self.sorted_prices.iter().rev()),
+            Side::Sell => Either::Right(self.sorted_prices.iter()),
+        };
+        iter.take(depth)
     }
+
 
     pub fn total_quantity(&self, depth: usize) -> Quantity {
         let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
