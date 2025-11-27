@@ -83,7 +83,7 @@ impl<'a> FindSpoofers<'a> {
         let (start_ts, end_ts) = dto.period;
         let duration = end_ts.saturating_sub(start_ts) as f32;
 
-        if duration == 0
+        if duration == 0.0
             || dto.average_qty == 0.0
             || dto.cancelled_qty == 0.0
             || dto.executed_qty == 0.0
