@@ -74,8 +74,8 @@ impl BookSide {
         total
     }
 
-    pub fn prices(&self) -> &BTreeSet<Price> {
-        &self.sorted_prices
+    pub fn prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
+        self.sorted_prices.iter().take(depth)
     }
 
     pub fn total_quantity(&self, depth: usize) -> Quantity {

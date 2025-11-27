@@ -21,6 +21,24 @@ impl TradeStore {
         Ok(())
     }
 
+    pub fn max_price(&self, period: Period) -> Price {
+        self.trades
+            .iter()
+            .filter(|x| x.timestamp >= period.0 && x.timestamp < period.1)
+            .map(|x| x.price)
+            .max()
+            .unwrap_or(0)
+    }
+
+    pub fn min_price(&self, period: Period) -> Price {
+        self.trades
+            .iter()
+            .filter(|x| x.timestamp >= period.0 && x.timestamp < period.1)
+            .map(|x| x.price)
+            .min()
+            .unwrap_or(Price::MAX)
+    }
+
     pub fn level_executed(&self, price: Price, period: Period) -> Quantity {
         let (start_ts, end_ts) = period;
 
@@ -33,7 +51,6 @@ impl TradeStore {
 
     pub fn level_executed_bid(&self, price: Price, period: Period) -> Quantity {
         self.level_executed_side(Side::Buy, price, period)
-
     }
 
     pub fn level_executed_ask(&self, price: Price, period: Period) -> Quantity {
@@ -51,6 +68,6 @@ impl TradeStore {
                     && tr.timestamp < end_ts
             })
             .map(|tr| tr.quantity)
-            .sum() 
+            .sum()
     }
 }
