@@ -1,7 +1,7 @@
-use std::ops::Sub;
 use crate::level2::OrderBook;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use crate::trade::TradeStore;
+use std::ops::Sub;
 
 pub struct SpooferDetected {
     pub side: Side,
@@ -46,9 +46,6 @@ impl<'a> FindSpoofers<'a> {
             trade_store,
         }
     }
-    pub fn get_short_life_threshold(&self) -> TimestampMS {
-        todo!()
-    }
 
     fn build_inner_dto(&self, dto: &FindSpoofersDTO, price: Price, side: Side) -> InnerDTO {
         let added_qty = self
@@ -82,20 +79,22 @@ impl<'a> FindSpoofers<'a> {
         }
     }
 
-    pub fn is_short_lived(&self, dto: &InnerDTO, short_life_threshold: TimestampMS) -> bool {
+    pub fn is_short_lived(&self, dto: &InnerDTO) -> bool {
         let (start_ts, end_ts) = dto.period;
-        let duration = end_ts.saturating_sub(start_ts);
+        let duration = end_ts.saturating_sub(start_ts) as f32;
 
-        if duration == 0 || dto.average_qty == 0.0 || dto.cancelled_qty == 0.0 {
+        if duration == 0
+            || dto.average_qty == 0.0
+            || dto.cancelled_qty == 0.0
+            || dto.executed_qty == 0.0
+        {
             return false;
         }
-        let lifetime = dto.average_qty / (dto.cancelled_qty / duration as f32);
+        let executed_lifetime = dto.average_qty / (dto.executed_qty / duration );
+        let cancelled_lifetime = dto.average_qty / (dto.cancelled_qty / duration);
 
-        lifetime < short_life_threshold as f32
+        cancelled_lifetime < executed_lifetime * 0.5
     }
-
-
-
 
     fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
         match dto.side {
