@@ -1,6 +1,6 @@
-use crate::level2::{OrderBook, OrderBookRealization};
+use crate::level2::OrderBook;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
-use crate::trade::{TradeStore, TradeStoreRealisation};
+use crate::trade::{TradeStore};
 
 pub struct SpooferDetected {
     pub side: Side,
@@ -11,8 +11,8 @@ pub struct SpooferDetected {
 }
 
 pub struct FindSpoofers<'a> {
-    order_book: &'a dyn OrderBook,
-    trade_store: &'a dyn TradeStore,
+    order_book: &'a OrderBook,
+    trade_store: &'a TradeStore,
 }
 
 pub struct FindSpoofersDTO {
@@ -27,8 +27,8 @@ pub struct FindSpoofersDTO {
 
 impl<'a> FindSpoofers<'a> {
     pub fn new(
-        order_book: &'a OrderBookRealization,
-        trade_store: &'a TradeStoreRealisation,
+        order_book: &'a OrderBook,
+        trade_store: &'a TradeStore,
     ) -> Self {
         Self {
             order_book,

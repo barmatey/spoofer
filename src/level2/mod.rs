@@ -1,10 +1,8 @@
 mod errors;
 mod events;
 mod order_book;
-mod traits;
 
-pub use order_book::OrderBookRealization;
-pub use traits::OrderBook;
+pub use order_book::OrderBook;
 
 pub use events::LevelUpdated;
 

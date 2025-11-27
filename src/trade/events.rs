@@ -5,6 +5,6 @@ pub struct TradeEvent {
     pub price: Price,
     pub quantity: Quantity,
     pub timestamp: TimestampMS,
-    pub taker: Side,
+    pub market_maker: Side,
 }
 

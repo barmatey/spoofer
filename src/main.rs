@@ -1,6 +1,6 @@
 use crate::connector::{BinanceConnector, BinanceConnectorConfig, Connector};
 use std::time::Duration;
-use crate::level2::{display_order_book, BookStats, OrderBookRealization, Snap};
+use crate::level2::{display_order_book, BookStats, OrderBook, Snap};
 use crate::shared::{Bus, Side};
 
 mod connector;
@@ -19,7 +19,7 @@ async fn main() {
     let bus = Bus::new();
 
     let worker = async || {
-        let mut order_book = OrderBookRealization::new();
+        let mut order_book = OrderBook::new();
         let mut order_stat = BookStats::new(10);
 
         loop {

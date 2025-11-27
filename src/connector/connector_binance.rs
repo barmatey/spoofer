@@ -65,10 +65,10 @@ impl<'a> BinanceConnector<'a> {
             quantity: (trade.quantity.parse::<f32>().unwrap()
                 * self.config.quantity_multiply as f32) as Quantity,
             timestamp: trade.event_time,
-            taker: if trade.is_buyer_maker {
-                Side::Sell
-            } else {
+            market_maker: if trade.is_buyer_maker {
                 Side::Buy
+            } else {
+                Side::Sell
             },
         }
     }

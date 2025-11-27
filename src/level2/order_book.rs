@@ -1,16 +1,16 @@
 use crate::level2::events::LevelUpdated;
-use crate::level2::traits::{BookSide, OrderBook};
 use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use std::collections::{BTreeSet, HashMap};
 
-struct BookSideRealization {
+
+pub struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
     sorted_prices: BTreeSet<Price>,
     side: Side,
 }
 
-impl BookSideRealization {
+impl BookSide {
     pub fn new(side: Side) -> Self {
         Self {
             ticks: HashMap::new(),
@@ -74,14 +74,12 @@ impl BookSideRealization {
 
         total
     }
-}
 
-impl BookSide for BookSideRealization {
-    fn prices(&self) -> &BTreeSet<Price> {
+    pub fn prices(&self) -> &BTreeSet<Price> {
         &self.sorted_prices
     }
 
-    fn total_quantity(&self, depth: usize) -> Quantity {
+    pub fn total_quantity(&self, depth: usize) -> Quantity {
         let iter: Box<dyn Iterator<Item = &Price>> = match self.side {
             Side::Buy => Box::new(self.sorted_prices.iter().rev()),
             Side::Sell => Box::new(self.sorted_prices.iter()),
@@ -96,14 +94,14 @@ impl BookSide for BookSideRealization {
             })
             .sum()
     }
-    fn level_quantity(&self, price: Price) -> Quantity {
+    pub fn level_quantity(&self, price: Price) -> Quantity {
         self.ticks
             .get(&price)
             .and_then(|v| v.last())
             .map_or(0, |last| last.quantity)
     }
 
-    fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
+    pub fn level_lifetime(&self, price: Price, period: Period) -> Option<TimestampMS> {
         let events = self.ticks.get(&price)?;
         let (start_ts, end_ts) = period;
 
@@ -121,7 +119,7 @@ impl BookSide for BookSideRealization {
         Some(last_nonzero.saturating_sub(first_nonzero))
     }
 
-    fn level_average_quantity(&self, price: Price, period: Period) -> Quantity {
+    pub fn level_average_quantity(&self, price: Price, period: Period) -> Quantity {
         let events = match self.ticks.get(&price) {
             Some(v) => v,
             None => return 0,
@@ -149,7 +147,7 @@ impl BookSide for BookSideRealization {
         }
     }
 
-    fn level_total_added(&self, price: Price, period: Period) -> Quantity {
+    pub fn level_total_added(&self, price: Price, period: Period) -> Quantity {
         self.total_change(price, period, |current, prev| {
             if current > prev {
                 current - prev
@@ -159,7 +157,7 @@ impl BookSide for BookSideRealization {
         })
     }
 
-    fn level_total_cancelled(&self, price: Price, period: Period) -> Quantity {
+    pub fn level_total_cancelled(&self, price: Price, period: Period) -> Quantity {
         self.total_change(price, period, |current, prev| {
             if current < prev {
                 prev - current
@@ -169,7 +167,7 @@ impl BookSide for BookSideRealization {
         })
     }
 
-    fn level_add_rate(&self, price: Price, period: Period) -> f32 {
+    pub fn level_add_rate(&self, price: Price, period: Period) -> f32 {
         let total_added = self.level_total_added(price, period);
 
         let (start_ts, end_ts) = period;
@@ -182,7 +180,7 @@ impl BookSide for BookSideRealization {
         }
     }
 
-    fn level_cancel_rate(&self, price: Price, period: Period) -> f32 {
+    pub fn level_cancel_rate(&self, price: Price, period: Period) -> f32 {
         let total_cancelled = self.level_total_cancelled(price, period);
 
         let (start_ts, end_ts) = period;
@@ -195,56 +193,59 @@ impl BookSide for BookSideRealization {
         }
     }
 
-    fn level_quantity_spikes(&self, price: Price, period: Period, threshold: f32) -> &Vec<LevelUpdated> {
-        let avg_quantity = self.level_average_quantity(price, period);
-        self
-            .ticks
-            .get(&price)
-            .unwrap()
-            .iter()
-            .filter(|x| true);
-        
+    pub fn level_quantity_spikes(
+        &self,
+        price: Price,
+        period: Period,
+        threshold: f32,
+    ) -> Box<dyn Iterator<Item = &LevelUpdated> + '_> {
+        let avg = self.level_average_quantity(price, period);
+        Box::new(
+            self.ticks
+                .get(&price)
+                .into_iter()
+                .flat_map(|v| v.iter())
+                .filter(move |x| x.quantity as f32 > avg as f32 * threshold),
+        )
     }
 }
 
-pub struct OrderBookRealization {
-    bids: BookSideRealization,
-    asks: BookSideRealization,
+pub struct OrderBook {
+    bids: BookSide,
+    asks: BookSide,
 }
 
-impl OrderBookRealization {
+impl OrderBook {
     pub fn new() -> Self {
         Self {
-            bids: BookSideRealization::new(Side::Buy),
-            asks: BookSideRealization::new(Side::Sell),
+            bids: BookSide::new(Side::Buy),
+            asks: BookSide::new(Side::Sell),
         }
     }
-}
 
-impl OrderBook for OrderBookRealization {
-    fn bids(&self) -> &dyn BookSide {
+    pub fn bids(&self) -> &BookSide {
         &self.bids
     }
 
-    fn asks(&self) -> &dyn BookSide {
+    pub fn asks(&self) -> &BookSide {
         &self.asks
     }
 
-    fn get_side(&self, side: Side) -> &dyn BookSide {
+    pub fn get_side(&self, side: Side) -> &BookSide {
         match side {
             Side::Buy => &self.bids,
             Side::Sell => &self.asks,
         }
     }
 
-    fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    pub fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         match event.side {
             Side::Buy => self.bids.update(event),
             Side::Sell => self.asks.update(event),
         }
     }
 
-    fn bid_ask_pressure(&self, depth: usize) -> f32 {
+    pub fn bid_ask_pressure(&self, _depth: usize) -> f32 {
         todo!()
     }
 }
