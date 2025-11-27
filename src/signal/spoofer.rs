@@ -30,7 +30,7 @@ struct InnerDTO {
     added_qty: f32,
     executed_qty: f32,
     cancelled_qty: f32,
-    average_quantity: f32,
+    average_qty: f32,
     side: Side,
     price: Price,
     period: Period,
@@ -46,44 +46,8 @@ impl<'a> FindSpoofers<'a> {
             trade_store,
         }
     }
-    pub fn get_short_life_threshold(
-        &self,
-        side: Side,
-        period: Period,
-        max_depth: usize,
-        percentile: f32,
-    ) -> TimestampMS {
-        let side_book = self.order_book.get_side(side);
-
-        let mut lifetimes: Vec<f32> = Vec::new();
-
-        for price in side_book.prices(max_depth) {
-            let average_quantity = side_book.level_average_quantity(*price, period);
-            let cancelled_qty = side_book.level_total_outflow(*price, period) as f32;
-            let executed_qty = self.trade_store.level_executed_side(side, *price, period) as f32;
-
-            let cancelled_only = (cancelled_qty - executed_qty).max(0.0);
-            if cancelled_only == 0.0 || average_quantity == 0.0 {
-                continue;
-            }
-
-            let (start_ts, end_ts) = period;
-            let duration = end_ts.saturating_sub(start_ts) as f32;
-
-            let lifetime = average_quantity / (cancelled_only / duration);
-            lifetimes.push(lifetime);
-        }
-
-        if lifetimes.is_empty() {
-            // если данных нет, возвращаем какой-то разумный дефолт
-            return 5_000; // миллисекунд
-        }
-
-        lifetimes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        // берем нужный перцентиль
-        let idx = ((lifetimes.len() as f32) * percentile).floor() as usize;
-        lifetimes[idx.min(lifetimes.len() - 1)] as TimestampMS
+    pub fn get_short_life_threshold(&self) -> TimestampMS {
+        todo!()
     }
 
     fn build_inner_dto(&self, dto: &FindSpoofersDTO, price: Price, side: Side) -> InnerDTO {
@@ -99,17 +63,18 @@ impl<'a> FindSpoofers<'a> {
             .get_side(side)
             .level_total_outflow(price, dto.period)
             .saturating_sub(executed_qty as Quantity) as f32;
-        let average_quantity = self
+        let average_qty = self
             .order_book
             .get_side(side)
             .level_average_quantity(price, dto.period);
+
         InnerDTO {
             added_qty,
             executed_qty,
             cancelled_qty,
+            average_qty,
             price,
             side,
-            average_quantity,
             period: dto.period,
             max_executed_rate: dto.max_executed_rate,
             min_cancel_rate: dto.min_cancel_rate,
@@ -121,19 +86,11 @@ impl<'a> FindSpoofers<'a> {
         let (start_ts, end_ts) = dto.period;
         let duration = end_ts.saturating_sub(start_ts);
 
-        if duration == 0 || dto.average_quantity == 0.0 {
+        if duration == 0 || dto.average_qty == 0.0 || dto.cancelled_qty == 0.0 {
             return false;
         }
+        let lifetime = dto.average_qty / (dto.cancelled_qty / duration as f32);
 
-        let cancelled_only = (dto.cancelled_qty - dto.executed_qty).max(0.0);
-        if cancelled_only == 0.0 {
-            return false;
-        }
-
-        // Little's Law: среднее время жизни объёма на уровне
-        let lifetime = dto.average_quantity / (cancelled_only / duration as f32);
-
-        // Если lifetime меньше порога → короткая жизнь → подозрение на спуффера
         lifetime < short_life_threshold as f32
     }
 
