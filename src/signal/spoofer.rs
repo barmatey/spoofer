@@ -1,4 +1,4 @@
-use crate::level2::OrderBook;
+use crate::level2::{OrderBook};
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use crate::trade::TradeStore;
 
@@ -25,6 +25,18 @@ pub struct FindSpoofersDTO {
     sides: Vec<Side>,
 }
 
+struct InnerDTO {
+    added_qty: f32,
+    cancelled_qty: f32,
+    executed_qty: f32,
+    side: Side,
+    price: Price,
+    period: Period,
+    max_executed_rate: f32,
+    min_cancel_rate: f32,
+    min_score: f32,
+}
+
 impl<'a> FindSpoofers<'a> {
     pub fn new(order_book: &'a OrderBook, trade_store: &'a TradeStore) -> Self {
         Self {
@@ -32,44 +44,72 @@ impl<'a> FindSpoofers<'a> {
             trade_store,
         }
     }
+    fn build_inner_dto(&self, dto: &FindSpoofersDTO, price: Price, side: Side) -> InnerDTO {
+        let added_qty = self
+            .order_book
+            .get_side(side)
+            .level_total_added(price, dto.period) as f32;
+        let executed_qty = self
+            .trade_store
+            .level_executed_side(side, price, dto.period) as f32;
+        let cancelled_qty = self
+            .order_book
+            .get_side(side)
+            .level_total_cancelled(price, dto.period) as f32;
+        InnerDTO {
+            added_qty,
+            executed_qty,
+            cancelled_qty,
+            price,
+            side,
+            period: dto.period,
+            max_executed_rate: dto.max_executed_rate,
+            min_cancel_rate: dto.min_cancel_rate,
+            min_score: dto.min_score,
+        }
+    }
 
-    fn price_is_close_to_edge(&self, price: Price, side: Side, period: Period) -> bool {
-        match side {
+    fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
+        match dto.side {
             Side::Buy => {
-                let edge = self.trade_store.min_price(period);
-                edge <= price
+                let edge = self.trade_store.min_price(dto.period);
+                edge <= dto.price
             }
             Side::Sell => {
-                let edge = self.trade_store.max_price(period);
-                edge >= price
+                let edge = self.trade_store.max_price(dto.period);
+                edge >= dto.price
             }
         }
     }
 
-    pub fn execute(&self, dto: FindSpoofersDTO) -> Result<Vec<SpooferDetected>, ()> {
+    fn few_orders_were_executed(&self, dto: &InnerDTO) -> bool {
+        dto.executed_qty < dto.added_qty * dto.max_executed_rate
+    }
+
+    fn many_orders_were_cancelled(&self, dto: &InnerDTO) -> bool {
+        dto.cancelled_qty > dto.added_qty * dto.min_cancel_rate
+    }
+
+    fn is_spoofer_here(&self, dto: &InnerDTO) -> bool {
+        self.trade_price_intersect_price_level(dto)
+            && self.few_orders_were_executed(dto)
+            && self.many_orders_were_cancelled(dto)
+    }
+
+    pub fn execute(&self, dto: &FindSpoofersDTO) -> Result<Vec<SpooferDetected>, ()> {
         let mut result = Vec::new();
 
-        for side in dto.sides {
-            let book = self.order_book.get_side(side);
-
-            for price in book.prices(dto.max_depth) {
-                let added_qty = book.level_total_added(*price, dto.period) as f32;
-                let cancelled_qty = book.level_total_cancelled(*price, dto.period) as f32;
-                let executed_qty =
-                    self.trade_store
-                        .level_executed_side(side, *price, dto.period) as f32;
-
-                if cancelled_qty > added_qty * dto.min_cancel_rate // большая доля отмен
-                    && executed_qty < added_qty * dto.max_executed_rate    // почти нет исполнения
-                    && self.price_is_close_to_edge(*price, side, dto.period) // Цена доходила до заявки
-                {
-                    for spike in book.level_quantity_spikes(
+        for side in dto.sides.iter() {
+            for price in self.order_book.get_side(*side).prices(dto.max_depth) {
+                let inner_dto = self.build_inner_dto(dto, *price, *side);
+                if self.is_spoofer_here(&inner_dto) {
+                    for spike in self.order_book.get_side(*side).level_quantity_spikes(
                         *price,
                         dto.period,
                         dto.quantity_spike_threshold,
                     ) {
                         result.push(SpooferDetected {
-                            side,
+                            side: *side,
                             quantity: spike.quantity,
                             price: spike.price,
                             score: 0.0,
