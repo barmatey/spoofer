@@ -3,7 +3,6 @@ use crate::level2::Level2Error;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use std::collections::{BTreeSet, HashMap};
 
-
 pub struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
     sorted_prices: BTreeSet<Price>,
@@ -119,15 +118,15 @@ impl BookSide {
         Some(last_nonzero.saturating_sub(first_nonzero))
     }
 
-    pub fn level_average_quantity(&self, price: Price, period: Period) -> Quantity {
+    pub fn level_average_quantity(&self, price: Price, period: Period) -> f32 {
         let events = match self.ticks.get(&price) {
             Some(v) => v,
-            None => return 0,
+            None => return 0.,
         };
 
         let (start_ts, end_ts) = period;
-        let mut sum: Quantity = 0;
-        let mut count: Quantity = 0;
+        let mut sum: f32 = 0.;
+        let mut count: u16 = 0;
 
         for ev in events.iter() {
             if ev.timestamp < start_ts {
@@ -136,14 +135,14 @@ impl BookSide {
             if ev.timestamp >= end_ts {
                 break;
             }
-            sum += ev.quantity;
+            sum += ev.quantity as f32;
             count += 1;
         }
 
         if count == 0 {
-            0
+            0.
         } else {
-            sum / count
+            sum / count as f32
         }
     }
 
@@ -198,15 +197,14 @@ impl BookSide {
         price: Price,
         period: Period,
         threshold: f32,
-    ) -> Box<dyn Iterator<Item = &LevelUpdated> + '_> {
+    ) -> impl Iterator<Item = &LevelUpdated> {
         let avg = self.level_average_quantity(price, period);
-        Box::new(
-            self.ticks
-                .get(&price)
-                .into_iter()
-                .flat_map(|v| v.iter())
-                .filter(move |x| x.quantity as f32 > avg as f32 * threshold),
-        )
+
+        self.ticks
+            .get(&price)
+            .into_iter()
+            .flat_map(|v| v.iter())
+            .filter(move |x| (x.quantity as f32) > (avg  * threshold))
     }
 }
 
