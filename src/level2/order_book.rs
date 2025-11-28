@@ -203,8 +203,4 @@ impl OrderBook {
             Side::Sell => self.asks.update(event),
         }
     }
-
-    pub fn bid_ask_pressure(&self, _depth: usize) -> f32 {
-        todo!()
-    }
 }
