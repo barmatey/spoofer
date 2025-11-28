@@ -95,9 +95,9 @@ impl<'a> FindSpoofers<'a> {
         {
             return false;
         }
+
         let executed_lifetime = dto.average_qty / (dto.executed_qty / duration);
         let cancelled_lifetime = dto.average_qty / (dto.cancelled_qty / duration);
-
         cancelled_lifetime < executed_lifetime * dto.lifetime_rate
     }
 
