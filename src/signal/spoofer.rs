@@ -1,7 +1,6 @@
 use crate::level2::OrderBook;
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
 use crate::trade::TradeStore;
-use std::ops::Sub;
 
 pub struct SpooferDetected {
     pub side: Side,
