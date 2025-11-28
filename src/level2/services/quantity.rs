@@ -48,6 +48,35 @@ impl<'a> QuantityStats<'a> {
         }
     }
 
+    pub fn level_median_quantity(&self, price: Price, period: Period) -> f32 {
+        let (start_ts, end_ts) = period;
+
+        // собираем все количества в вектор
+        let mut quantities: Vec<f32> = self
+            .side
+            .level_ticks(price)
+            .iter()
+            .rev() // идти с конца для эффективности
+            .skip_while(|ev| ev.timestamp > end_ts)
+            .take_while(|ev| ev.timestamp >= start_ts)
+            .map(|ev| ev.quantity as f32)
+            .collect();
+
+        if quantities.is_empty() {
+            return 0.0;
+        }
+
+        quantities.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let mid = quantities.len() / 2;
+        if quantities.len() % 2 == 0 {
+            (quantities[mid - 1] + quantities[mid]) / 2.0
+        } else {
+            quantities[mid]
+        }
+    }
+
+
     fn total_change<F>(&self, price: Price, period: Period, compare: F) -> Quantity
     where
         F: Fn(Quantity, Quantity) -> Quantity,
@@ -98,7 +127,7 @@ impl<'a> QuantityStats<'a> {
         threshold: f32,
     ) -> impl Iterator<Item = &LevelUpdated> {
         let (start_ts, end_ts) = period;
-        let avg = self.level_average_quantity(price, period);
+        let median = self.level_median_quantity(price, period);
 
         self.side
             .level_ticks(price)
@@ -106,6 +135,6 @@ impl<'a> QuantityStats<'a> {
             .rev()
             .skip_while(move |ev| ev.timestamp > end_ts)
             .take_while(move |ev| ev.timestamp >= start_ts)
-            .filter(move |x| (x.quantity as f32) > (avg * threshold))
+            .filter(move |x| (x.quantity as f32) > (median * threshold))
     }
 }
