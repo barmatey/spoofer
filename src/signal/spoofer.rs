@@ -6,7 +6,6 @@ pub struct SpooferDetected {
     pub side: Side,
     pub quantity: Quantity,
     pub price: Price,
-    pub score: f32,
     pub timestamp: TimestampMS,
 }
 
@@ -16,10 +15,10 @@ pub struct FindSpoofers<'a> {
 }
 
 pub struct FindSpoofersDTO {
-    min_score: f32,
-    quantity_spike_threshold: f32,
-    min_cancel_rate: f32,
-    max_executed_rate: f32,
+    quantity_spike_rate: f32,
+    cancelled_rate: f32,
+    lifetime_rate: f32,
+    executed_rate: f32,
     period: Period,
     max_depth: usize,
     sides: Vec<Side>,
@@ -30,9 +29,9 @@ struct InnerDTO {
     executed_qty: f32,
     cancelled_qty: f32,
     average_qty: f32,
-    max_executed_rate: f32,
-    min_cancel_rate: f32,
-    min_score: f32,
+    lifetime_rate: f32,
+    executed_rate: f32,
+    cancelled_rate: f32,
     side: Side,
     price: Price,
     period: Period,
@@ -72,9 +71,9 @@ impl<'a> FindSpoofers<'a> {
             price,
             side,
             period: dto.period,
-            max_executed_rate: dto.max_executed_rate,
-            min_cancel_rate: dto.min_cancel_rate,
-            min_score: dto.min_score,
+            executed_rate: dto.executed_rate,
+            cancelled_rate: dto.cancelled_rate,
+            lifetime_rate: dto.lifetime_rate,
         }
     }
 
@@ -92,7 +91,7 @@ impl<'a> FindSpoofers<'a> {
         let executed_lifetime = dto.average_qty / (dto.executed_qty / duration );
         let cancelled_lifetime = dto.average_qty / (dto.cancelled_qty / duration);
 
-        cancelled_lifetime < executed_lifetime * 0.5
+        cancelled_lifetime < executed_lifetime * dto.lifetime_rate
     }
 
     fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
@@ -132,13 +131,12 @@ impl<'a> FindSpoofers<'a> {
                     for spike in self.order_book.get_side(*side).level_quantity_spikes(
                         *price,
                         dto.period,
-                        dto.quantity_spike_threshold,
+                        dto.quantity_spike_rate,
                     ) {
                         result.push(SpooferDetected {
                             side: *side,
                             quantity: spike.quantity,
                             price: spike.price,
-                            score: 0.0,
                             timestamp: spike.timestamp,
                         });
                     }
