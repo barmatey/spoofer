@@ -31,12 +31,12 @@ struct InnerDTO {
     executed_qty: f32,
     cancelled_qty: f32,
     average_qty: f32,
-    side: Side,
-    price: Price,
-    period: Period,
     max_executed_rate: f32,
     min_cancel_rate: f32,
     min_score: f32,
+    side: Side,
+    price: Price,
+    period: Period,
 }
 
 impl<'a> FindSpoofers<'a> {
