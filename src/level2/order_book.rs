@@ -8,6 +8,7 @@ pub struct BookSide {
     ticks: HashMap<Price, Vec<LevelUpdated>>,
     sorted_prices: BTreeSet<Price>,
     side: Side,
+    empty_ticks: Vec<LevelUpdated>,
 }
 
 impl BookSide {
@@ -16,6 +17,7 @@ impl BookSide {
             ticks: HashMap::new(),
             sorted_prices: BTreeSet::new(),
             side,
+            empty_ticks: vec![],
         }
     }
 
@@ -74,13 +76,21 @@ impl BookSide {
 
         total
     }
-
+    
+    pub fn ticks(&self, price: Price) -> &Vec<LevelUpdated> {
+        &self.ticks.get(&price).unwrap_or(&self.empty_ticks)
+    }
+    
     pub fn prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
         let iter = match self.side {
             Side::Buy => Either::Left(self.sorted_prices.iter().rev()),
             Side::Sell => Either::Right(self.sorted_prices.iter()),
         };
         iter.take(depth)
+    }
+    
+    pub fn side(&self) -> &Side{
+        &self.side
     }
 
     pub fn total_quantity(&self, depth: usize) -> Quantity {
