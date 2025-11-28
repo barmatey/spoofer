@@ -18,7 +18,7 @@ pub struct FindSpoofers<'a> {
 }
 
 pub struct FindSpoofersDTO {
-    quantity_spike_rate: f32,
+    spike_rate: f32,
     cancelled_rate: f32,
     lifetime_rate: f32,
     executed_rate: f32,
@@ -34,7 +34,6 @@ struct InnerDTO {
     average_qty: f32,
     lifetime_rate: f32,
     executed_rate: f32,
-    cancelled_rate: f32,
     side: Side,
     price: Price,
     period: Period,
@@ -79,12 +78,24 @@ impl<'a> FindSpoofers<'a> {
             side,
             period: dto.period,
             executed_rate: dto.executed_rate,
-            cancelled_rate: dto.cancelled_rate,
             lifetime_rate: dto.lifetime_rate,
         }
     }
 
-    pub fn is_short_lived(&self, dto: &InnerDTO) -> bool {
+    fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
+        match dto.side {
+            Side::Buy => {
+                let edge = self.trade_stats.min_price(dto.period);
+                edge <= dto.price
+            }
+            Side::Sell => {
+                let edge = self.trade_stats.max_price(dto.period);
+                edge >= dto.price
+            }
+        }
+    }
+
+    pub fn cancelled_orders_have_short_lifetime(&self, dto: &InnerDTO) -> bool {
         let (start_ts, end_ts) = dto.period;
         let duration = end_ts.saturating_sub(start_ts) as f32;
 
@@ -101,31 +112,14 @@ impl<'a> FindSpoofers<'a> {
         cancelled_lifetime < executed_lifetime * dto.lifetime_rate
     }
 
-    fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
-        match dto.side {
-            Side::Buy => {
-                let edge = self.trade_stats.min_price(dto.period);
-                edge <= dto.price
-            }
-            Side::Sell => {
-                let edge = self.trade_stats.max_price(dto.period);
-                edge >= dto.price
-            }
-        }
-    }
-
     fn few_orders_were_executed(&self, dto: &InnerDTO) -> bool {
-        todo!()
-    }
-
-    fn many_orders_were_cancelled(&self, dto: &InnerDTO) -> bool {
-        todo!()
+        dto.executed_qty < dto.added_qty * dto.executed_rate
     }
 
     fn is_spoofer_here(&self, dto: &InnerDTO) -> bool {
         self.trade_price_intersect_price_level(dto)
             && self.few_orders_were_executed(dto)
-            && self.many_orders_were_cancelled(dto)
+            && self.cancelled_orders_have_short_lifetime(dto)
     }
 
     pub fn execute(&self, dto: &FindSpoofersDTO) -> Result<Vec<SpooferDetected>, ()> {
@@ -138,7 +132,7 @@ impl<'a> FindSpoofers<'a> {
                     for spike in self.get_quantity_stats(*side).level_quantity_spikes(
                         *price,
                         dto.period,
-                        dto.quantity_spike_rate,
+                        dto.spike_rate,
                     ) {
                         result.push(SpooferDetected {
                             side: *side,
