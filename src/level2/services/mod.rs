@@ -1,3 +1,3 @@
 mod quantity;
 
-pub use quantity::QuantityStatService;
+pub use quantity::QuantityStats;

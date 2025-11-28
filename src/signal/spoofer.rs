@@ -1,6 +1,6 @@
-use crate::level2::OrderBook;
+use crate::level2::{OrderBook, QuantityStats};
 use crate::shared::{Period, Price, Quantity, Side, TimestampMS};
-use crate::trade::TradeStore;
+use crate::trade::{TradeStats, TradeStore};
 
 pub struct SpooferDetected {
     pub side: Side,
@@ -12,6 +12,9 @@ pub struct SpooferDetected {
 pub struct FindSpoofers<'a> {
     order_book: &'a OrderBook,
     trade_store: &'a TradeStore,
+    bid_stats: QuantityStats<'a>,
+    ask_stats: QuantityStats<'a>,
+    trade_stats: TradeStats<'a>,
 }
 
 pub struct FindSpoofersDTO {
@@ -42,26 +45,30 @@ impl<'a> FindSpoofers<'a> {
         Self {
             order_book,
             trade_store,
+            bid_stats: QuantityStats::new(order_book.bids()),
+            ask_stats: QuantityStats::new(order_book.asks()),
+            trade_stats: TradeStats::new(trade_store),
+        }
+    }
+
+    fn get_quantity_stats(&self, side: Side) -> &QuantityStats {
+        match side {
+            Side::Buy => &self.bid_stats,
+            Side::Sell => &self.ask_stats,
         }
     }
 
     fn build_inner_dto(&self, dto: &FindSpoofersDTO, price: Price, side: Side) -> InnerDTO {
-        let added_qty = self
-            .order_book
-            .get_side(side)
-            .level_total_added(price, dto.period) as f32;
         let executed_qty = self
-            .trade_store
+            .trade_stats
             .level_executed_side(side, price, dto.period) as f32;
-        let cancelled_qty: f32 = self
-            .order_book
-            .get_side(side)
+
+        let qty_stats = self.get_quantity_stats(side);
+        let average_qty = qty_stats.level_average_quantity(price, dto.period);
+        let added_qty = qty_stats.level_total_added(price, dto.period) as f32;
+        let cancelled_qty: f32 = qty_stats
             .level_total_outflow(price, dto.period)
             .saturating_sub(executed_qty as Quantity) as f32;
-        let average_qty = self
-            .order_book
-            .get_side(side)
-            .level_average_quantity(price, dto.period);
 
         InnerDTO {
             added_qty,
@@ -88,7 +95,7 @@ impl<'a> FindSpoofers<'a> {
         {
             return false;
         }
-        let executed_lifetime = dto.average_qty / (dto.executed_qty / duration );
+        let executed_lifetime = dto.average_qty / (dto.executed_qty / duration);
         let cancelled_lifetime = dto.average_qty / (dto.cancelled_qty / duration);
 
         cancelled_lifetime < executed_lifetime * dto.lifetime_rate
@@ -97,11 +104,11 @@ impl<'a> FindSpoofers<'a> {
     fn trade_price_intersect_price_level(&self, dto: &InnerDTO) -> bool {
         match dto.side {
             Side::Buy => {
-                let edge = self.trade_store.min_price(dto.period);
+                let edge = self.trade_stats.min_price(dto.period);
                 edge <= dto.price
             }
             Side::Sell => {
-                let edge = self.trade_store.max_price(dto.period);
+                let edge = self.trade_stats.max_price(dto.period);
                 edge >= dto.price
             }
         }
@@ -128,7 +135,7 @@ impl<'a> FindSpoofers<'a> {
             for price in self.order_book.get_side(*side).best_prices(dto.max_depth) {
                 let inner_dto = self.build_inner_dto(dto, *price, *side);
                 if self.is_spoofer_here(&inner_dto) {
-                    for spike in self.order_book.get_side(*side).level_quantity_spikes(
+                    for spike in self.get_quantity_stats(*side).level_quantity_spikes(
                         *price,
                         dto.period,
                         dto.quantity_spike_rate,

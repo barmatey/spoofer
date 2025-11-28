@@ -2,11 +2,14 @@ use crate::level2::order_book::BookSide;
 use crate::level2::LevelUpdated;
 use crate::shared::{Period, Price, Quantity, Side};
 
-pub struct QuantityStatService<'a> {
+pub struct QuantityStats<'a> {
     side: &'a BookSide,
 }
 
-impl<'a> QuantityStatService<'a> {
+impl<'a> QuantityStats<'a> {
+    pub fn new(book_side: &'a BookSide) -> Self {
+        Self { side: book_side }
+    }
     pub fn total_quantity(&self, depth: usize) -> Quantity {
         self.side
             .best_prices(depth)
@@ -16,7 +19,10 @@ impl<'a> QuantityStatService<'a> {
     }
 
     pub fn level_quantity(&self, price: Price) -> Quantity {
-        self.side.level_ticks(price).last().map_or(0, |ev| ev.quantity)
+        self.side
+            .level_ticks(price)
+            .last()
+            .map_or(0, |ev| ev.quantity)
     }
 
     pub fn level_average_quantity(&self, price: Price, period: Period) -> f32 {
@@ -35,17 +41,20 @@ impl<'a> QuantityStatService<'a> {
 
         let (sum, count) = sum_count;
 
-        if count == 0 { 0.0 } else { sum / count as f32 }
+        if count == 0 {
+            0.0
+        } else {
+            sum / count as f32
+        }
     }
 
     fn total_change<F>(&self, price: Price, period: Period, compare: F) -> Quantity
     where
         F: Fn(Quantity, Quantity) -> Quantity,
     {
-       let (start_ts, end_ts) = period;
+        let (start_ts, end_ts) = period;
 
-        self
-            .side
+        self.side
             .level_ticks(price)
             .iter()
             .rev()
@@ -61,7 +70,7 @@ impl<'a> QuantityStatService<'a> {
             })
             .0
     }
-    
+
     pub fn level_total_added(&self, price: Price, period: Period) -> Quantity {
         self.total_change(price, period, |current, prev| {
             if current > prev {
@@ -91,7 +100,8 @@ impl<'a> QuantityStatService<'a> {
         let (start_ts, end_ts) = period;
         let avg = self.level_average_quantity(price, period);
 
-        self.side.level_ticks(price)
+        self.side
+            .level_ticks(price)
             .into_iter()
             .rev()
             .skip_while(move |ev| ev.timestamp > end_ts)
