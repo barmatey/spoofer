@@ -1,3 +1,4 @@
 pub mod shared;
 pub mod level2;
-mod trade;
+pub mod trade;
+pub mod signal;

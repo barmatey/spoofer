@@ -18,13 +18,13 @@ pub struct FindSpoofers<'a> {
 }
 
 pub struct FindSpoofersDTO {
-    spike_rate: f32,
-    cancelled_rate: f32,
-    lifetime_rate: f32,
-    executed_rate: f32,
-    period: Period,
-    max_depth: usize,
-    sides: Vec<Side>,
+    pub spike_rate: f32,
+    pub cancelled_rate: f32,
+    pub lifetime_rate: f32,
+    pub executed_rate: f32,
+    pub period: Period,
+    pub max_depth: usize,
+    pub sides: Vec<Side>,
 }
 
 struct InnerDTO {
