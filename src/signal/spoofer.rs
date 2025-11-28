@@ -125,7 +125,7 @@ impl<'a> FindSpoofers<'a> {
         let mut result = Vec::new();
 
         for side in dto.sides.iter() {
-            for price in self.order_book.get_side(*side).prices(dto.max_depth) {
+            for price in self.order_book.get_side(*side).best_prices(dto.max_depth) {
                 let inner_dto = self.build_inner_dto(dto, *price, *side);
                 if self.is_spoofer_here(&inner_dto) {
                     for spike in self.order_book.get_side(*side).level_quantity_spikes(
