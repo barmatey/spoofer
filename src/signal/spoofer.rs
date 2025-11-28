@@ -50,7 +50,7 @@ impl<'a> FindSpoofers<'a> {
         }
     }
 
-    fn get_quantity_stats(&self, side: Side) -> &QuantityStats {
+    fn get_quantity_stats(&self, side: Side) -> &QuantityStats<'_> {
         match side {
             Side::Buy => &self.bid_stats,
             Side::Sell => &self.ask_stats,
