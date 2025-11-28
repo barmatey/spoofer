@@ -14,8 +14,8 @@
   { "side": "Buy", "price": 70, "quantity": 95,  "timestamp": 1120 },
   { "side": "Buy", "price": 70, "quantity": 110, "timestamp": 1130 },
 
-  { "side": "Buy", "price": 70, "quantity": 5000, "timestamp": 1140 },
-  { "side": "Buy", "price": 70, "quantity": 4800, "timestamp": 1150 },
+  { "side": "Buy", "price": 70, "quantity": 2000, "timestamp": 1140 },
+  { "side": "Buy", "price": 70, "quantity": 3800, "timestamp": 1150 },
 
   { "side": "Buy", "price": 70, "quantity": 105, "timestamp": 1160 },
   { "side": "Buy", "price": 70, "quantity": 90,  "timestamp": 1170 },
