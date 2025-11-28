@@ -19,7 +19,6 @@ pub struct FindSpoofers<'a> {
 
 pub struct FindSpoofersDTO {
     pub spike_rate: f32,
-    pub cancelled_rate: f32,
     pub lifetime_rate: f32,
     pub executed_rate: f32,
     pub period: Period,
@@ -27,6 +26,7 @@ pub struct FindSpoofersDTO {
     pub sides: Vec<Side>,
 }
 
+#[derive(Debug)]
 struct InnerDTO {
     added_qty: f32,
     executed_qty: f32,
@@ -95,7 +95,7 @@ impl<'a> FindSpoofers<'a> {
         }
     }
 
-    pub fn cancelled_orders_have_short_lifetime(&self, dto: &InnerDTO) -> bool {
+    fn cancelled_orders_have_short_lifetime(&self, dto: &InnerDTO) -> bool {
         let (start_ts, end_ts) = dto.period;
         let duration = end_ts.saturating_sub(start_ts) as f32;
 
@@ -117,6 +117,12 @@ impl<'a> FindSpoofers<'a> {
     }
 
     fn is_spoofer_here(&self, dto: &InnerDTO) -> bool {
+        println!("trade_price_intersect_price_level, {}", self.trade_price_intersect_price_level(dto));
+        println!("few_orders_were_executed, {}", self.few_orders_were_executed(dto));
+        println!("cancelled_orders_have_short_lifetime, {}", self.cancelled_orders_have_short_lifetime(dto));
+        println!("{:?}", dto);
+
+
         self.trade_price_intersect_price_level(dto)
             && self.few_orders_were_executed(dto)
             && self.cancelled_orders_have_short_lifetime(dto)

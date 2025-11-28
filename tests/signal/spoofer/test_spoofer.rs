@@ -68,10 +68,9 @@ mod tests {
     #[test]
     fn foo() {
         let config = FindSpoofersDTO {
-            spike_rate: 0.0,
-            cancelled_rate: 0.0,
-            lifetime_rate: 0.0,
-            executed_rate: 0.0,
+            spike_rate: 5.0,
+            lifetime_rate: 1.0,
+            executed_rate: 0.4,
             period: (990, 2_000),
             max_depth: 2,
             sides: vec![Side::Buy],
