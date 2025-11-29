@@ -35,10 +35,7 @@ pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Connecto
     serde_json::from_str::<T>(s).map_err(|e| ConnectorError::from(ParsingError::SerdeParseError(e)))
 }
 
-pub fn parse_str<T: std::str::FromStr>(s: &str) -> Result<T, ParsingError>
-where
-    T::Err: std::fmt::Display,
-{
-    s.parse::<T>()
+pub fn parse_str_into_number(s: &str) -> Result<f64, ParsingError> {
+    s.parse::<f64>()
         .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
 }

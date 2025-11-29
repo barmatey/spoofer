@@ -1,5 +1,5 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::services::{connect_websocket, parse_json, parse_str, Connection};
+use crate::connector::services::{connect_websocket, parse_json, parse_str_into_number, Connection};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
@@ -65,8 +65,8 @@ impl<'a> BinanceConnector {
         &self,
         trade: AggTradeMessage,
     ) -> Result<TradeEvent, ConnectorError> {
-        let price = parse_str::<f64>(&trade.price)? * self.config.price_multiply;
-        let qty = parse_str::<f64>(&trade.quantity)? * self.config.quantity_multiply;
+        let price = parse_str_into_number(&trade.price)? * self.config.price_multiply;
+        let qty = parse_str_into_number(&trade.quantity)? * self.config.quantity_multiply;
 
         let event = TradeEvent {
             exchange: "binance".to_string(),
@@ -86,8 +86,8 @@ impl<'a> BinanceConnector {
             Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
 
         for (price, quantity) in depth.bids_to_update.iter() {
-            let price = (parse_str::<f64>(price)? * self.config.price_multiply);
-            let quantity = (parse_str::<f64>(quantity)? * self.config.quantity_multiply);
+            let price = (parse_str_into_number(price)? * self.config.price_multiply);
+            let quantity = (parse_str_into_number(quantity)? * self.config.quantity_multiply);
 
             result.push(LevelUpdated {
                 side: Side::Buy,
@@ -98,8 +98,8 @@ impl<'a> BinanceConnector {
         }
 
         for (price, quantity) in depth.asks_to_update.iter() {
-            let price = (parse_str::<f64>(price)? * self.config.price_multiply);
-            let quantity = (parse_str::<f64>(quantity)? * self.config.quantity_multiply);
+            let price = (parse_str_into_number(price)? * self.config.price_multiply);
+            let quantity = (parse_str_into_number(quantity)? * self.config.quantity_multiply);
 
             result.push(LevelUpdated {
                 side: Side::Sell,
