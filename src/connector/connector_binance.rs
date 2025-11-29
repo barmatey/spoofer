@@ -1,11 +1,12 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::services::{connect_websocket, parse_json, parse_str};
+use crate::connector::services::{connect_websocket, parse_json, parse_str, Connection};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::tungstenite::Message;
@@ -111,54 +112,100 @@ impl<'a> BinanceConnector {
         Ok(result)
     }
 
-    fn handle_depth(&mut self, txt: &str) -> Result<(), ConnectorError> {
-        let parsed = parse_json(txt)?;
+    async fn connect(&self) -> Result<Connection, ConnectorError> {
+        let url = format!(
+            "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
+            self.config.ticker, self.config.ticker,
+        );
+
+        connect_websocket(&url).await.map_err(|e| {
+            eprintln!("Failed to connect websocket: {:?}", e);
+            ConnectorError::from(e)
+        })
+    }
+
+    fn process_message(&mut self, txt: &str) -> Result<(), ConnectorError> {
+        let wrapper: Value = serde_json::from_str(txt).map_err(|e| {
+            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
+                "Failed to parse wrapper: {:?}, error: {:?}",
+                txt, e
+            )))
+        })?;
+
+        let data = wrapper.get("data").ok_or_else(|| {
+            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
+                "Missing 'data' field in wrapper: {}",
+                txt
+            )))
+        })?;
+
+        let event_type = data.get("e").and_then(|v| v.as_str()).ok_or_else(|| {
+            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
+                "Missing 'e' field in data: {}",
+                data
+            )))
+        })?;
+
+        match event_type {
+            "depthUpdate" => self.handle_depth_message(data),
+            "aggTrade" => self.handle_agg_trade_message(data),
+            other => Err(ConnectorError::ParsingError(
+                ParsingError::MessageParsingError(format!("Unknown event type: {}", other)),
+            )),
+        }
+    }
+
+    fn handle_depth_message(&mut self, data: &Value) -> Result<(), ConnectorError> {
+        let txt = data.to_string();
+        let parsed = parse_json(&txt)?;
         for e in self.get_events_from_depth(parsed)? {
             self.bus.levels.publish(e);
         }
-        Ok(())
-    }
+        Ok(())    }
 
-    fn handle_agg_trade(&mut self, txt: &str) -> Result<(), ConnectorError> {
-        let msg = parse_json::<AggTradeMessage>(txt)?;
+    fn handle_agg_trade_message(&mut self, data: &Value) -> Result<(), ConnectorError> {
+        let txt = data.to_string();
+        let msg = parse_json::<AggTradeMessage>(&txt)?;
         let event = self.get_event_from_agg_trade(msg)?;
         self.bus.trades.publish(event);
         Ok(())
     }
 
-    async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!(
-            "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
-            self.config.ticker, self.config.ticker,
-        );
-        let (mut write, mut read) = connect_websocket(&url).await?;
+    pub async fn run(&mut self) -> Result<(), ConnectorError> {
+        let (mut write, mut read) = self.connect().await?;
 
         loop {
             tokio::select! {
                 message = read.next() => {
-                    if let Some(Ok(Message::Text(txt))) = message {
-                        // Binance combined stream: {"stream":"...","data":{...}}
-                        if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(&txt) {
-                            if let Some(data) = wrapper.get("data") {
-                                if let Some(event_type) = data.get("e").and_then(|v| v.as_str()) {
-                                    match event_type {
-                                        "depthUpdate" => {
-                                            self.handle_depth(&data.to_string());
-                                        },
-                                        "aggTrade" => {
-                                            self.handle_agg_trade(&data.to_string());
-                                        },
-                                        _ => {}
-                                    }
+                    match message {
+                        Some(Ok(Message::Text(txt))) => {
+                            if let Err(err) = self.process_message(&txt) {
+                                eprintln!("Failed to process message: {:?}, error: {:?}", txt, err);
+                            }
+                        },
+                        Some(Ok(msg)) => {
+                            eprintln!("Ignoring non-text message: {:?}", msg);
+                        },
+                        Some(Err(err)) => {
+                            eprintln!("WebSocket read error: {:?}", err);
+                        },
+                        None => {
+                            eprintln!("WebSocket closed, reconnecting...");
+                            match self.connect().await {
+                                Ok((w, r)) => {
+                                    write = w;
+                                    read = r;
+                                    eprintln!("Reconnected successfully");
+                                },
+                                Err(err) => {
+                                    eprintln!("Failed to reconnect: {:?}", err);
+                                    sleep(Duration::from_secs(5)).await;
                                 }
                             }
-                        } else {
-                            println!("Failed to parse wrapper: {}", txt);
                         }
                     }
                 },
                 _ = sleep(Duration::from_secs(20)) => {
-                    // Ping для поддержания соединения
                     if let Err(e) = write.send(Message::Ping(vec![])).await {
                         eprintln!("Ping error: {:?}", e);
                     }

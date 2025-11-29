@@ -4,24 +4,21 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
 
-pub async fn connect_websocket(
-    url: &str,
-) -> Result<
-    (
-        futures_util::stream::SplitSink<
-            tokio_tungstenite::WebSocketStream<
-                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-            >,
-            Message,
+pub type Connection = (
+    futures_util::stream::SplitSink<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
         >,
-        futures_util::stream::SplitStream<
-            tokio_tungstenite::WebSocketStream<
-                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-            >,
+        Message,
+    >,
+    futures_util::stream::SplitStream<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
         >,
-    ),
-    ConnectorError,
-> {
+    >,
+);
+
+pub async fn connect_websocket(url: &str) -> Result<Connection, ConnectorError> {
     println!("🔗 Connecting to WS: {}", url);
 
     let parsed_url =
@@ -37,7 +34,6 @@ pub async fn connect_websocket(
 pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
     serde_json::from_str::<T>(s).map_err(|e| ConnectorError::from(ParsingError::SerdeParseError(e)))
 }
-
 
 pub fn parse_str<T: std::str::FromStr>(s: &str) -> Result<T, ParsingError>
 where
