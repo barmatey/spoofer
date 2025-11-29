@@ -1,6 +1,4 @@
-use crate::connector::services::{
-    connect_websocket, parse_json, parse_number, parse_timestamp, send_ws_message, Connection,
-};
+use crate::connector::services::{connect_websocket, parse_json, parse_number, parse_timestamp, send_ws_message, websocket_event_loop, Connection};
 use crate::connector::{
     errors::{ConnectorError, ParsingError},
     Connector,
@@ -8,11 +6,9 @@ use crate::connector::{
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side, TimestampMS};
 use crate::trade::TradeEvent;
-use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,7 +129,7 @@ impl BitstampConnector {
     }
 
     pub async fn run(&mut self) -> Result<(), ConnectorError> {
-        let (mut write, mut read) = self.connect().await?;
+        let (mut write, read) = self.connect().await?;
 
         let subscribe_depth = serde_json::json!({
             "event": "bts:subscribe",
@@ -149,40 +145,8 @@ impl BitstampConnector {
         let msg = Message::Text(subscribe_trades.to_string());
         send_ws_message(&mut write, msg).await?;
 
-        loop {
-            tokio::select! {
-                message = read.next() => {
-                    match message {
-                        Some(Ok(Message::Text(txt))) => {
-                            if let Err(err) = self.process_message(&txt) {
-                                eprintln!("Failed to process message: {:?}, error: {:?}", txt, err);
-                            }
-                        }
-                        Some(Ok(msg)) => eprintln!("Ignoring non-text message: {:?}", msg),
-                        Some(Err(err)) => eprintln!("WebSocket read error: {:?}", err),
-                        None => {
-                            eprintln!("WebSocket closed, reconnecting...");
-                            match self.connect().await {
-                                Ok(conn) => {
-                                    write = conn.0;
-                                    read = conn.1;
-                                    eprintln!("Reconnected successfully");
-                                }
-                                Err(err) => {
-                                    eprintln!("Failed to reconnect: {:?}", err);
-                                    sleep(Duration::from_secs(5)).await;
-                                }
-                            }
-                        }
-                    }
-                }
-                _ = sleep(Duration::from_secs(20)) => {
-                    if let Err(e) = write.send(Message::Ping(vec![])).await {
-                        eprintln!("Ping error: {:?}", e);
-                    }
-                }
-            }
-        }
+        websocket_event_loop(write, read, |msg| self.process_message(msg)).await?;
+        Ok(())
     }
 }
 

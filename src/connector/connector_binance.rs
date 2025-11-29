@@ -1,15 +1,14 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::services::{connect_websocket, parse_json, parse_number, Connection};
+use crate::connector::services::{
+    connect_websocket, parse_json, parse_number, websocket_event_loop, Connection,
+};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
-use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
-use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -161,7 +160,8 @@ impl<'a> BinanceConnector {
         for e in self.get_events_from_depth(parsed)? {
             self.bus.levels.publish(e);
         }
-        Ok(())    }
+        Ok(())
+    }
 
     fn handle_agg_trade_message(&mut self, data: &Value) -> Result<(), ConnectorError> {
         let txt = data.to_string();
@@ -172,46 +172,9 @@ impl<'a> BinanceConnector {
     }
 
     pub async fn run(&mut self) -> Result<(), ConnectorError> {
-        let (mut write, mut read) = self.connect().await?;
-
-        loop {
-            tokio::select! {
-                message = read.next() => {
-                    match message {
-                        Some(Ok(Message::Text(txt))) => {
-                            if let Err(err) = self.process_message(&txt) {
-                                eprintln!("Failed to process message: {:?}, error: {:?}", txt, err);
-                            }
-                        },
-                        Some(Ok(msg)) => {
-                            eprintln!("Ignoring non-text message: {:?}", msg);
-                        },
-                        Some(Err(err)) => {
-                            eprintln!("WebSocket read error: {:?}", err);
-                        },
-                        None => {
-                            eprintln!("WebSocket closed, reconnecting...");
-                            match self.connect().await {
-                                Ok((w, r)) => {
-                                    write = w;
-                                    read = r;
-                                    eprintln!("Reconnected successfully");
-                                },
-                                Err(err) => {
-                                    eprintln!("Failed to reconnect: {:?}", err);
-                                    sleep(Duration::from_secs(5)).await;
-                                }
-                            }
-                        }
-                    }
-                },
-                _ = sleep(Duration::from_secs(20)) => {
-                    if let Err(e) = write.send(Message::Ping(vec![])).await {
-                        eprintln!("Ping error: {:?}", e);
-                    }
-                }
-            }
-        }
+        let (write, read) = self.connect().await?;
+        websocket_event_loop(write, read, |msg| self.process_message(msg)).await?;
+        Ok(())
     }
 }
 
