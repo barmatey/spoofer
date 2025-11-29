@@ -61,6 +61,7 @@ impl<'a> BinanceConnector {
 
     fn get_event_from_agg_trade(&self, trade: AggTradeMessage) -> TradeEvent {
         TradeEvent {
+            exchange: "binance".to_string(),
             price: (trade.price.parse::<f32>().unwrap() * self.config.price_multiply as f32)
                 as Price,
             quantity: (trade.quantity.parse::<f32>().unwrap()

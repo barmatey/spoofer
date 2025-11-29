@@ -45,12 +45,13 @@ impl BitstampConnector {
 
     fn get_event_from_trade(&self, trade: BitstampTrade) -> TradeEvent {
         TradeEvent {
+            exchange: "bitstamp".to_string(),
             price: (trade.price * self.config.price_multiply as f64) as Price,
             quantity: (trade.amount * self.config.quantity_multiply as f64) as Quantity,
             timestamp: trade
                 .microtimestamp
                 .parse::<u64>()
-                .unwrap_or(0), // микросекунды
+                .unwrap_or(0) / 1000,
             market_maker: if trade.type_ == 0 { Side::Buy } else { Side::Sell },
         }
     }
@@ -60,7 +61,7 @@ impl BitstampConnector {
         let ts = ob
             .microtimestamp
             .parse::<TimestampMS>()
-            .unwrap_or_else(|_| ob.timestamp.parse::<u64>().unwrap_or(0) * 1_000_000);
+            .unwrap() / 1000;
 
         for (price, qty) in ob.bids {
             result.push(LevelUpdated {

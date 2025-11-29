@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use crate::connector::{BitstampConnector, BitstampConnectorConfig, Connector};
+use crate::connector::{BinanceConnector, BinanceConnectorConfig, BitstampConnector, BitstampConnectorConfig, Connector};
 use crate::shared::Bus;
+use std::sync::Arc;
 
 mod connector;
 mod shared;
@@ -12,24 +12,24 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let bus = Arc::new(Bus::new());
-    let cloned = bus.clone();
+    let bus2 = bus.clone();
+    let bus3 = bus.clone();
 
-    let config = BitstampConnectorConfig{
-        ticker: "btcusd".to_string(),   // не "BTC-USD"
+    let config = BitstampConnectorConfig {
+        ticker: "btcusd".to_string(), // не "BTC-USD"
         price_multiply: 1000,
         quantity_multiply: 100_000_000,
     };
 
-
-    let printer = tokio::spawn(async move{
+    let printer = tokio::spawn(async move {
         loop {
-            let events = cloned.trades.pull();
+            let events = bus2.trades.pull();
             for ev in events {
                 println!("{:?}", ev);
             }
 
-            let events = cloned.levels.pull();
-            for ev in events{
+            let events = bus2.levels.pull();
+            for ev in events {
                 // println!("{:?}", ev);
             }
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -41,6 +41,17 @@ async fn main() {
         connector.listen().await;
     });
 
-    let _ = tokio::join!(printer, listener);
 
+    let binance_config = BinanceConnectorConfig{
+        ticker: "btcusdt".to_string(), // не "BTC-USD"
+        price_multiply: 1000,
+        quantity_multiply: 100_000_000,
+    };
+
+    let binance_lintener = tokio::spawn(async move {
+        let mut connector = BinanceConnector::new(bus3, binance_config);
+        connector.listen().await;
+    });
+
+    let _ = tokio::join!(printer, listener, binance_lintener);
 }

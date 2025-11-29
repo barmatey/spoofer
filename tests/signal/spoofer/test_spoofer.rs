@@ -50,6 +50,7 @@ fn get_trade_store() -> TradeStore {
     let mut store = TradeStore::new();
     for fake in jsons {
         let event = TradeEvent {
+            exchange: "fake".to_string(),
             price: fake.price,
             quantity: fake.quantity,
             market_maker: Side::Buy,
