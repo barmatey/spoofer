@@ -83,7 +83,7 @@ impl BitstampConnector {
         result
     }
 
-    async fn handle_orderbook(&mut self, txt: &str) {
+    fn handle_orderbook(&mut self, txt: &str) {
         match serde_json::from_str::<BitstampOrderBook>(txt) {
             Ok(ob) => {
                 for e in self.get_events_from_orderbook(ob) {
@@ -94,7 +94,7 @@ impl BitstampConnector {
         }
     }
 
-    async fn handle_trade(&mut self, txt: &str) {
+    fn handle_trade(&mut self, txt: &str) {
         match serde_json::from_str::<BitstampTrade>(txt) {
             Ok(trade) => {
                 let event = self.get_event_from_trade(trade);
@@ -151,10 +151,10 @@ impl BitstampConnector {
                                     if let Some(channel) = wrapper.get("channel").and_then(|v| v.as_str()) {
                                         match channel {
                                             c if c.starts_with("order_book") => {
-                                                self.handle_orderbook(&wrapper["data"].to_string()).await;
+                                                self.handle_orderbook(&wrapper["data"].to_string());
                                             }
                                             c if c.starts_with("live_trades") => {
-                                                self.handle_trade(&wrapper["data"].to_string()).await;
+                                                self.handle_trade(&wrapper["data"].to_string());
                                             }
                                             _ => {}
                                         }
