@@ -112,7 +112,7 @@ impl BitstampConnector {
                     self.bus.levels.publish(e);
                 }
             }
-            ("data", c) if c.starts_with("live_trades") => {
+            ("trade", c) if c.starts_with("live_trades") => {
                 let trade: BitstampTrade = parse_json(&data.to_string())?;
                 let event = self.get_event_from_trade(trade)?;
                 self.bus.trades.publish(event);

@@ -29,9 +29,9 @@ async fn main() {
             }
 
             let events = bus2.levels.pull();
-            for ev in events {
-                // println!("{:?}", ev);
-            }
+            // for ev in events {
+            //     println!("{:?}", ev);
+            // }
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
     });
