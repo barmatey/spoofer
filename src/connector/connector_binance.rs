@@ -1,4 +1,3 @@
-use crate::connector::types::WebsocketConnectionResult;
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
@@ -7,8 +6,8 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use url::Url;
+use tokio_tungstenite::{tungstenite::Message};
+use crate::connector::services::connect_websocket;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -125,20 +124,12 @@ impl<'a> BinanceConnector {
         }
     }
 
-    async fn connect_websocket(&self) -> WebsocketConnectionResult {
+    async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let url = format!(
             "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
             self.config.ticker, self.config.ticker,
         );
-
-        println!("🔗 Connecting: {}", url);
-
-        let (ws_stream, _) = connect_async(Url::parse(&url)?).await?;
-        Ok(ws_stream.split())
-    }
-
-    async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (mut write, mut read) = self.connect_websocket().await?;
+        let (mut write, mut read) = connect_websocket(&url).await?;
 
         loop {
             tokio::select! {
