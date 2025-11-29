@@ -1,5 +1,5 @@
 use crate::connector::services::{
-    connect_websocket, parse_json, parse_number, send_ws_message, Connection,
+    connect_websocket, parse_json, parse_number, parse_timestamp, send_ws_message, Connection,
 };
 use crate::connector::{
     errors::{ConnectorError, ParsingError},
@@ -16,7 +16,7 @@ use tokio::time::{sleep, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct BitstampOrderBook {
+struct BitDepth {
     timestamp: String,
     microtimestamp: String,
     bids: Vec<(String, String)>,
@@ -49,20 +49,18 @@ impl BitstampConnector {
         Self { bus, config }
     }
 
-    fn get_event_from_trade(&self, trade: BitstampTrade) -> TradeEvent {
-        TradeEvent {
+    fn get_event_from_trade(&self, trade: BitstampTrade) -> Result<TradeEvent, ConnectorError> {
+        let event = TradeEvent {
             exchange: "bitstamp".to_string(),
             price: (trade.price * self.config.price_multiply) as Price,
             quantity: (trade.amount * self.config.quantity_multiply) as Quantity,
-            timestamp: trade.microtimestamp.parse::<u64>().unwrap_or(0) / 1000,
+            timestamp: parse_timestamp(&trade.microtimestamp)? / 1000,
             market_maker: [Side::Buy, Side::Sell][trade.type_ as usize],
-        }
+        };
+        Ok(event)
     }
 
-    fn get_events_from_depth(
-        &self,
-        ob: BitstampOrderBook,
-    ) -> Result<Vec<LevelUpdated>, ConnectorError> {
+    fn get_events_from_depth(&self, ob: BitDepth) -> Result<Vec<LevelUpdated>, ConnectorError> {
         let mut result = Vec::with_capacity(ob.bids.len() + ob.asks.len());
         let ts = ob.microtimestamp.parse::<TimestampMS>().unwrap_or(0) / 1000;
 
@@ -113,14 +111,14 @@ impl BitstampConnector {
 
         match (event_type, channel) {
             ("data", c) if c.starts_with("order_book") => {
-                let ob: BitstampOrderBook = parse_json(&data.to_string())?;
+                let ob: BitDepth = parse_json(&data.to_string())?;
                 for e in self.get_events_from_depth(ob)? {
                     self.bus.levels.publish(e);
                 }
             }
             ("data", c) if c.starts_with("live_trades") => {
                 let trade: BitstampTrade = parse_json(&data.to_string())?;
-                let event = self.get_event_from_trade(trade);
+                let event = self.get_event_from_trade(trade)?;
                 self.bus.trades.publish(event);
             }
             _ => {}

@@ -8,6 +8,7 @@ use futures_util::stream::SplitSink;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::MaybeTlsStream;
 use tokio::net::TcpStream;
+use crate::shared::TimestampMS;
 
 pub type Connection = (
     futures_util::stream::SplitSink<
@@ -51,5 +52,11 @@ pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Connecto
 
 pub fn parse_number(s: &str) -> Result<f64, ParsingError> {
     s.parse::<f64>()
+        .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
+}
+
+
+pub fn parse_timestamp(s: &str) -> Result<TimestampMS, ParsingError>{
+    s.parse::<TimestampMS>()
         .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
 }
