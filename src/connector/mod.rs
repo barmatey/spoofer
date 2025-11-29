@@ -1,8 +1,8 @@
 mod connector;
 mod connector_binance;
 mod errors;
-mod connector_conibase;
+mod bitstamp_connector;
 
 pub use connector::Connector;
 pub use connector_binance::{BinanceConnector, BinanceConnectorConfig};
-pub use connector_conibase::{CoinbaseConnector, CoinbaseConnectorConfig};
+pub use bitstamp_connector::{BitstampConnector, BitstampConnectorConfig};

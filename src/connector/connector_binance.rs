@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
@@ -48,13 +49,13 @@ pub struct BinanceConnectorConfig {
     pub quantity_multiply: u32,
 }
 
-pub struct BinanceConnector<'a> {
-    bus: &'a Bus,
+pub struct BinanceConnector {
+    bus: Arc<Bus>,
     config: BinanceConnectorConfig,
 }
 
-impl<'a> BinanceConnector<'a> {
-    pub fn new(bus: &'a Bus, config: BinanceConnectorConfig) -> Self {
+impl<'a> BinanceConnector {
+    pub fn new(bus: Arc<Bus>, config: BinanceConnectorConfig) -> Self {
         Self { config, bus }
     }
 
@@ -189,7 +190,7 @@ impl<'a> BinanceConnector<'a> {
     }
 }
 
-impl<'a> Connector for BinanceConnector<'a> {
+impl Connector for BinanceConnector {
     async fn listen(&mut self) {
         let _ = self.run().await;
     }
