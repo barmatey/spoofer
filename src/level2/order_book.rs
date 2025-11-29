@@ -49,20 +49,29 @@ impl BookSide {
 
         Ok(())
     }
-    
+
     pub fn level_ticks(&self, price: Price) -> &Vec<LevelUpdated> {
         &self.ticks.get(&price).unwrap_or(&self.empty_ticks)
     }
-    
+
     pub fn best_prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
         let iter = match self.side {
             Side::Buy => Either::Left(self.sorted_prices.iter().rev()),
             Side::Sell => Either::Right(self.sorted_prices.iter()),
         };
-        iter.take(depth)
+        iter.skip_while(|price| {
+            self.ticks
+                .get(price)
+                .unwrap_or_else(|| &self.empty_ticks)
+                .last()
+                .map(|ev| ev.quantity)
+                .unwrap_or(0)
+                != 0
+        })
+        .take(depth)
     }
-    
-    pub fn side(&self) -> &Side{
+
+    pub fn side(&self) -> &Side {
         &self.side
     }
 }
