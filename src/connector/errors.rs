@@ -21,6 +21,9 @@ pub enum ParsingError {
 pub enum WebsocketError {
     #[error("Websocket connection failed")]
     ConnectionFailed,
+
+    #[error("Send message failed")]
+    SendMessageFailed,
 }
 
 #[derive(Debug, Error)]
