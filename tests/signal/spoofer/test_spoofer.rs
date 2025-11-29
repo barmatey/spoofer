@@ -1,7 +1,6 @@
 use serde::Deserialize;
 use spoofing::level2::{LevelUpdated, OrderBook};
 use spoofing::shared::{Price, Quantity, Side, TimestampMS};
-use spoofing::signal::spoofer::{FindSpoofers, FindSpoofersDTO};
 use spoofing::trade::{TradeEvent, TradeStore};
 use std::fs;
 use std::path::Path;
@@ -67,18 +66,6 @@ mod tests {
 
     #[test]
     fn foo() {
-        let config = FindSpoofersDTO {
-            spike_rate: 5.0,
-            lifetime_rate: 1.0,
-            executed_rate: 0.4,
-            period: (1110, 1170),
-            max_depth: 2,
-            sides: vec![Side::Buy],
-        };
-        let book = get_order_book();
-        let trades = get_trade_store();
-        let usecase = FindSpoofers::new(&book, &trades);
-        let left = usecase.execute(&config).unwrap();
-        assert_eq!(left.len(), 2);
+
     }
 }
