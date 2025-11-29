@@ -62,7 +62,7 @@ impl BookSide {
         iter.skip_while(|price| {
             self.ticks
                 .get(price)
-                .unwrap_or_else(|| &self.empty_ticks)
+                .unwrap_or(&self.empty_ticks)
                 .last()
                 .map(|ev| ev.quantity)
                 .unwrap_or(0)
