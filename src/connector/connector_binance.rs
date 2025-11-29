@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use crate::connector::types::WebsocketConnectionResult;
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
@@ -124,24 +125,7 @@ impl<'a> BinanceConnector {
         }
     }
 
-    async fn connect_websocket(
-        &self,
-    ) -> Result<
-        (
-            futures_util::stream::SplitSink<
-                tokio_tungstenite::WebSocketStream<
-                    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-                >,
-                Message,
-            >,
-            futures_util::stream::SplitStream<
-                tokio_tungstenite::WebSocketStream<
-                    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-                >,
-            >,
-        ),
-        Box<dyn std::error::Error>,
-    > {
+    async fn connect_websocket(&self) -> WebsocketConnectionResult {
         let url = format!(
             "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
             self.config.ticker, self.config.ticker,

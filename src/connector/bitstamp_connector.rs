@@ -1,3 +1,4 @@
+use crate::connector::types::WebsocketConnectionResult;
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side, TimestampMS};
@@ -11,8 +12,8 @@ use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BitstampOrderBook {
-    timestamp: String,       // в секундах
-    microtimestamp: String,  // в микросекундах
+    timestamp: String,      // в секундах
+    microtimestamp: String, // в микросекундах
     bids: Vec<(String, String)>,
     asks: Vec<(String, String)>,
 }
@@ -48,26 +49,25 @@ impl BitstampConnector {
             exchange: "bitstamp".to_string(),
             price: (trade.price * self.config.price_multiply as f64) as Price,
             quantity: (trade.amount * self.config.quantity_multiply as f64) as Quantity,
-            timestamp: trade
-                .microtimestamp
-                .parse::<u64>()
-                .unwrap_or(0) / 1000,
-            market_maker: if trade.type_ == 0 { Side::Buy } else { Side::Sell },
+            timestamp: trade.microtimestamp.parse::<u64>().unwrap_or(0) / 1000,
+            market_maker: if trade.type_ == 0 {
+                Side::Buy
+            } else {
+                Side::Sell
+            },
         }
     }
 
     fn get_events_from_orderbook(&self, ob: BitstampOrderBook) -> Vec<LevelUpdated> {
         let mut result = Vec::with_capacity(ob.bids.len() + ob.asks.len());
-        let ts = ob
-            .microtimestamp
-            .parse::<TimestampMS>()
-            .unwrap() / 1000;
+        let ts = ob.microtimestamp.parse::<TimestampMS>().unwrap() / 1000;
 
         for (price, qty) in ob.bids {
             result.push(LevelUpdated {
                 side: Side::Buy,
                 price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
-                quantity: (qty.parse::<f32>().unwrap() * self.config.quantity_multiply as f32) as Quantity,
+                quantity: (qty.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
+                    as Quantity,
                 timestamp: ts,
             });
         }
@@ -76,7 +76,8 @@ impl BitstampConnector {
             result.push(LevelUpdated {
                 side: Side::Sell,
                 price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
-                quantity: (qty.parse::<f32>().unwrap() * self.config.quantity_multiply as f32) as Quantity,
+                quantity: (qty.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
+                    as Quantity,
                 timestamp: ts,
             });
         }
@@ -105,20 +106,7 @@ impl BitstampConnector {
         }
     }
 
-    async fn connect_websocket(
-        &self,
-    ) -> Result<
-        (
-            futures_util::stream::SplitSink<
-                tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-                Message,
-            >,
-            futures_util::stream::SplitStream<
-                tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-            >,
-        ),
-        Box<dyn std::error::Error>,
-    > {
+    async fn connect_websocket(&self) -> WebsocketConnectionResult {
         let url = "wss://ws.bitstamp.net";
         println!("🔗 Connecting to Bitstamp WS: {}", url);
         let (ws_stream, _) = connect_async(Url::parse(url)?).await?;
@@ -133,14 +121,18 @@ impl BitstampConnector {
             "event": "bts:subscribe",
             "data": { "channel": format!("order_book_{}", self.config.ticker) }
         });
-        write.send(Message::Text(subscribe_orderbook.to_string())).await?;
+        write
+            .send(Message::Text(subscribe_orderbook.to_string()))
+            .await?;
 
         // Подписка на live trades
         let subscribe_trades = serde_json::json!({
             "event": "bts:subscribe",
             "data": { "channel": format!("live_trades_{}", self.config.ticker) }
         });
-        write.send(Message::Text(subscribe_trades.to_string())).await?;
+        write
+            .send(Message::Text(subscribe_trades.to_string()))
+            .await?;
 
         loop {
             tokio::select! {
