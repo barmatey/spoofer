@@ -86,8 +86,8 @@ impl<'a> BinanceConnector {
             Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
 
         for (price, quantity) in depth.bids_to_update.iter() {
-            let price = (parse_str_into_number(price)? * self.config.price_multiply);
-            let quantity = (parse_str_into_number(quantity)? * self.config.quantity_multiply);
+            let price = parse_str_into_number(price)? * self.config.price_multiply;
+            let quantity = parse_str_into_number(quantity)? * self.config.quantity_multiply;
 
             result.push(LevelUpdated {
                 side: Side::Buy,
@@ -98,8 +98,8 @@ impl<'a> BinanceConnector {
         }
 
         for (price, quantity) in depth.asks_to_update.iter() {
-            let price = (parse_str_into_number(price)? * self.config.price_multiply);
-            let quantity = (parse_str_into_number(quantity)? * self.config.quantity_multiply);
+            let price = parse_str_into_number(price)? * self.config.price_multiply;
+            let quantity = parse_str_into_number(quantity)? * self.config.quantity_multiply;
 
             result.push(LevelUpdated {
                 side: Side::Sell,
