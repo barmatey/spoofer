@@ -1,5 +1,5 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::services::{connect_websocket, parse_json};
+use crate::connector::services::{connect_websocket, parse_json, parse_str};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
@@ -46,8 +46,8 @@ struct AggTradeMessage {
 
 pub struct BinanceConnectorConfig {
     pub ticker: String,
-    pub price_multiply: u32,
-    pub quantity_multiply: u32,
+    pub price_multiply: f64,
+    pub quantity_multiply: f64,
 }
 
 pub struct BinanceConnector {
@@ -60,52 +60,60 @@ impl<'a> BinanceConnector {
         Self { config, bus }
     }
 
-    fn get_event_from_agg_trade(&self, trade: AggTradeMessage) -> TradeEvent {
-        TradeEvent {
+    fn get_event_from_agg_trade(
+        &self,
+        trade: AggTradeMessage,
+    ) -> Result<TradeEvent, ConnectorError> {
+        let price = parse_str::<f64>(&trade.price)? * self.config.price_multiply;
+        let qty = parse_str::<f64>(&trade.quantity)? * self.config.quantity_multiply;
+
+        let event = TradeEvent {
             exchange: "binance".to_string(),
-            price: (trade.price.parse::<f32>().unwrap() * self.config.price_multiply as f32)
-                as Price,
-            quantity: (trade.quantity.parse::<f32>().unwrap()
-                * self.config.quantity_multiply as f32) as Quantity,
+            price: price as Price,
+            quantity: qty as Quantity,
             timestamp: trade.event_time,
-            market_maker: if trade.is_buyer_maker {
-                Side::Buy
-            } else {
-                Side::Sell
-            },
-        }
+            market_maker: [Side::Sell, Side::Buy][trade.is_buyer_maker as usize],
+        };
+        Ok(event)
     }
 
-    fn get_events_from_depth(&self, depth: DepthUpdateMessage) -> Vec<LevelUpdated> {
+    fn get_events_from_depth(
+        &self,
+        depth: DepthUpdateMessage,
+    ) -> Result<Vec<LevelUpdated>, ConnectorError> {
         let mut result =
             Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
 
         for (price, quantity) in depth.bids_to_update.iter() {
+            let price = (parse_str::<f64>(price)? * self.config.price_multiply);
+            let quantity = (parse_str::<f64>(quantity)? * self.config.quantity_multiply);
+
             result.push(LevelUpdated {
                 side: Side::Buy,
-                price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
-                quantity: (quantity.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
-                    as Quantity,
+                price: price as Price,
+                quantity: quantity as Quantity,
                 timestamp: depth.event_time,
             });
         }
 
         for (price, quantity) in depth.asks_to_update.iter() {
+            let price = (parse_str::<f64>(price)? * self.config.price_multiply);
+            let quantity = (parse_str::<f64>(quantity)? * self.config.quantity_multiply);
+
             result.push(LevelUpdated {
                 side: Side::Sell,
-                price: (price.parse::<f32>().unwrap() * self.config.price_multiply as f32) as Price,
-                quantity: (quantity.parse::<f32>().unwrap() * self.config.quantity_multiply as f32)
-                    as Quantity,
+                price: price as Price,
+                quantity: quantity as Quantity,
                 timestamp: depth.event_time,
             });
         }
 
-        result
+        Ok(result)
     }
 
     fn handle_depth(&mut self, txt: &str) -> Result<(), ConnectorError> {
         let parsed = parse_json(txt)?;
-        for e in self.get_events_from_depth(parsed) {
+        for e in self.get_events_from_depth(parsed)? {
             self.bus.levels.publish(e);
         }
         Ok(())
@@ -113,7 +121,7 @@ impl<'a> BinanceConnector {
 
     fn handle_agg_trade(&mut self, txt: &str) -> Result<(), ConnectorError> {
         let msg = parse_json::<AggTradeMessage>(txt)?;
-        let event = self.get_event_from_agg_trade(msg);
+        let event = self.get_event_from_agg_trade(msg)?;
         self.bus.trades.publish(event);
         Ok(())
     }

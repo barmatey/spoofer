@@ -9,6 +9,9 @@ pub enum ParsingError {
 
     #[error("URL parsing error: {0}")]
     UrlParseError(#[from] UrlParseError),
+
+    #[error("Converting error: {0}")]
+    ConvertingError(String),
 }
 
 #[derive(Debug, Error)]

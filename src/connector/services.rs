@@ -37,3 +37,12 @@ pub async fn connect_websocket(
 pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
     serde_json::from_str::<T>(s).map_err(|e| ConnectorError::from(ParsingError::SerdeParseError(e)))
 }
+
+
+pub fn parse_str<T: std::str::FromStr>(s: &str) -> Result<T, ParsingError>
+where
+    T::Err: std::fmt::Display,
+{
+    s.parse::<T>()
+        .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
+}
