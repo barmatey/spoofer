@@ -1,4 +1,4 @@
-use crate::connector::types::WebsocketConnectionResult;
+use crate::connector::services::connect_websocket;
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side, TimestampMS};
@@ -37,11 +37,16 @@ pub struct BitstampConnectorConfig {
 pub struct BitstampConnector {
     bus: Arc<Bus>,
     config: BitstampConnectorConfig,
+    ws_url: String,
 }
 
 impl BitstampConnector {
     pub fn new(bus: Arc<Bus>, config: BitstampConnectorConfig) -> Self {
-        Self { bus, config }
+        Self {
+            bus,
+            config,
+            ws_url: "wss://ws.bitstamp.net".to_string(),
+        }
     }
 
     fn get_event_from_trade(&self, trade: BitstampTrade) -> TradeEvent {
@@ -106,15 +111,8 @@ impl BitstampConnector {
         }
     }
 
-    async fn connect_websocket(&self) -> WebsocketConnectionResult {
-        let url = "wss://ws.bitstamp.net";
-        println!("🔗 Connecting to Bitstamp WS: {}", url);
-        let (ws_stream, _) = connect_async(Url::parse(url)?).await?;
-        Ok(ws_stream.split())
-    }
-
     async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (mut write, mut read) = self.connect_websocket().await?;
+        let (mut write, mut read) = connect_websocket(&self.ws_url).await?;
 
         // Подписка на orderbook
         let subscribe_orderbook = serde_json::json!({
