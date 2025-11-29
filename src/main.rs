@@ -41,17 +41,17 @@ async fn main() {
         connector.listen().await;
     });
 
+    //
+    // let binance_config = BinanceConnectorConfig{
+    //     ticker: "btcusdt".to_string(), // не "BTC-USD"
+    //     price_multiply: 1000.0,
+    //     quantity_multiply: 100_000_000.0,
+    // };
+    //
+    // let binance_listener = tokio::spawn(async move {
+    //     let mut connector = BinanceConnector::new(bus3, binance_config);
+    //     connector.listen().await;
+    // });
 
-    let binance_config = BinanceConnectorConfig{
-        ticker: "btcusdt".to_string(), // не "BTC-USD"
-        price_multiply: 1000.0,
-        quantity_multiply: 100_000_000.0,
-    };
-
-    let binance_listener = tokio::spawn(async move {
-        let mut connector = BinanceConnector::new(bus3, binance_config);
-        connector.listen().await;
-    });
-
-    let _ = tokio::join!(printer, listener, binance_listener);
+    let _ = tokio::join!(printer, listener, );
 }

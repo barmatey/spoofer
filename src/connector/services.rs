@@ -27,6 +27,8 @@ pub async fn connect_websocket(url: &str) -> Result<Connection, ConnectorError> 
         .await
         .map_err(|_| ConnectorError::WebsocketError(WebsocketError::ConnectionFailed))?;
 
+    println!("🟢 Successfully connected to {}", url);
+
     Ok(ws_stream.split())
 }
 
@@ -71,7 +73,7 @@ where
                         eprintln!("WebSocket read error: {:?}", err);
                     }
                     None => {
-                        eprintln!("WebSocket closed, reconnecting...");
+                        eprintln!("WebSocket closed");
                         break; // reconnect можно делать извне
                     }
                 }
