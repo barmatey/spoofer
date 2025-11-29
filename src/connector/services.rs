@@ -24,12 +24,16 @@ pub async fn connect_websocket(
 > {
     println!("🔗 Connecting to WS: {}", url);
 
-    let parsed_url = Url::parse(url)
-        .map_err(|e| ConnectorError::from(ParsingError::UrlParseError(e)))?;
+    let parsed_url =
+        Url::parse(url).map_err(|e| ConnectorError::from(ParsingError::UrlParseError(e)))?;
 
     let (ws_stream, _) = connect_async(parsed_url)
         .await
         .map_err(|_| ConnectorError::WebsocketError(WebsocketError::ConnectionFailed))?;
 
     Ok(ws_stream.split())
+}
+
+pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
+    serde_json::from_str::<T>(s).map_err(|e| ConnectorError::from(ParsingError::SerdeParseError(e)))
 }

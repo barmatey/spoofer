@@ -1,3 +1,5 @@
+use crate::connector::errors::{ConnectorError, ParsingError};
+use crate::connector::services::{connect_websocket, parse_json};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
@@ -6,8 +8,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tokio_tungstenite::{tungstenite::Message};
-use crate::connector::services::connect_websocket;
+use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -102,26 +103,19 @@ impl<'a> BinanceConnector {
         result
     }
 
-    async fn handle_depth(&mut self, txt: &str) {
-        let parsed = serde_json::from_str::<DepthUpdateMessage>(txt);
-        match parsed {
-            Ok(value) => {
-                for e in self.get_events_from_depth(value) {
-                    self.bus.levels.publish(e);
-                }
-            }
-            Err(err) => println!("DepthUpdateMessage parsing error: {:?}", err),
+    fn handle_depth(&mut self, txt: &str) -> Result<(), ConnectorError> {
+        let parsed = parse_json(txt)?;
+        for e in self.get_events_from_depth(parsed) {
+            self.bus.levels.publish(e);
         }
+        Ok(())
     }
 
-    async fn handle_trade(&mut self, txt: &str) {
-        match serde_json::from_str::<AggTradeMessage>(txt) {
-            Ok(msg) => {
-                let event = self.get_event_from_agg_trade(msg);
-                self.bus.trades.publish(event);
-            }
-            Err(err) => println!("AggTradeMessage parsing error: {:?}", err),
-        }
+    fn handle_agg_trade(&mut self, txt: &str) -> Result<(), ConnectorError> {
+        let msg = parse_json::<AggTradeMessage>(txt)?;
+        let event = self.get_event_from_agg_trade(msg);
+        self.bus.trades.publish(event);
+        Ok(())
     }
 
     async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -141,10 +135,10 @@ impl<'a> BinanceConnector {
                                 if let Some(event_type) = data.get("e").and_then(|v| v.as_str()) {
                                     match event_type {
                                         "depthUpdate" => {
-                                            self.handle_depth(&data.to_string()).await;
+                                            self.handle_depth(&data.to_string());
                                         },
                                         "aggTrade" => {
-                                            self.handle_trade(&data.to_string()).await;
+                                            self.handle_agg_trade(&data.to_string());
                                         },
                                         _ => {}
                                     }

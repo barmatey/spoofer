@@ -1,13 +1,11 @@
+use serde_json::Error;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
 
 #[derive(Debug, Error)]
 pub enum ParsingError {
-    #[error("Trade parsing error")]
-    ParsingTradeError,
-
     #[error("Level2 parsing error")]
-    ParsingLevel2Error,
+    SerdeParseError(#[from] Error),
 
     #[error("URL parsing error: {0}")]
     UrlParseError(#[from] UrlParseError),
