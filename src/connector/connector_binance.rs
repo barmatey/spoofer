@@ -194,7 +194,7 @@ impl<'a> BinanceConnector {
     }
 
     async fn connect(&self) -> Result<Connection, ConnectorError> {
-        let builder = BinanceUrlBuilder::new(self.configs.get_all());
+        let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
 
         connect_websocket(&url).await.map_err(|e| {

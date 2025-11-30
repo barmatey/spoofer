@@ -32,7 +32,7 @@ impl TickerMap {
         self.symbols.insert(symbol, self.data.len() - 1);
     }
 
-    pub fn get_specific(&self, ticker: &str) -> Result<&TickerConfig, ConnectorError> {
+    pub fn get_by_ticker(&self, ticker: &str) -> Result<&TickerConfig, ConnectorError> {
         let err = || {
             OtherError(format!(
                 "Cannot extract linked specific ticker for {}",
@@ -56,7 +56,11 @@ impl TickerMap {
         self.data.get(*idx).ok_or_else(err)
     }
 
-    pub fn get_all(&self) -> &[TickerConfig] {
+    pub fn get_all_configs(&self) -> &[TickerConfig] {
         &self.data
+    }
+
+    pub fn get_symbol_from_ticker(&self, ticker: &str) -> String{
+        (self.converter)(ticker)
     }
 }

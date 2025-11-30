@@ -4,13 +4,19 @@ use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
+use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::errors::ParsingError::ConvertingError;
+use crate::connector::services::parser::{
+    parse_json, parse_timestamp_from_date_string, parse_value,
+};
+use crate::connector::services::ticker_map::TickerMap;
+use crate::connector::services::websocket::{
+    connect_websocket, send_ws_message, websocket_event_loop, Connection,
+};
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite::Message;
-use crate::connector::services::parser::{parse_json, parse_timestamp_from_date_string, parse_value};
-use crate::connector::services::websocket::{connect_websocket, send_ws_message, websocket_event_loop, Connection};
 // =============================
 // Config
 // =============================
@@ -36,6 +42,7 @@ struct KrakenBookEntry {
     bids: Vec<BookSide>,
     asks: Vec<BookSide>,
     timestamp: String,
+    symbol: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,20 +51,28 @@ struct KrakenTrade {
     qty: f64,
     side: String,
     timestamp: String,
+    symbol: String,
 }
 
-// =============================
-// Connector
-// =============================
+fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
+    let mut result = TickerMap::new(|x| x.to_uppercase());
+    for x in config.ticker_configs {
+        result.register(x);
+    }
+    result
+}
 
 pub struct KrakenConnector {
     bus: Arc<Bus>,
-    config: KrakenConfig,
+    configs: TickerMap,
 }
 
 impl KrakenConnector {
-    pub fn new(bus: Arc<Bus>, config: KrakenConfig) -> Self {
-        Self { bus, config }
+    pub fn new(bus: Arc<Bus>, config: ConnectorConfig) -> Self {
+        Self {
+            bus,
+            configs: build_ticker_map(config),
+        }
     }
 
     async fn connect(&self) -> Result<Connection, ConnectorError> {
@@ -67,28 +82,37 @@ impl KrakenConnector {
         println!("[kraken] Connected");
 
         // Send subscribe for trades
-        let sub_trade = serde_json::json!({
-            "method": "subscribe",
-            "params": {
-                "channel": "trade",
-                "symbol": [ self.config.ticker ]
-            }
-        });
-        send_ws_message(&mut write, Message::Text(sub_trade.to_string())).await?;
-        println!("[kraken] Sent trade subscribe");
+        for ticker_config in self.configs.get_all_configs() {
+            let symbol = self
+                .configs
+                .get_symbol_from_ticker(&ticker_config.ticker);
 
-        // Send subscribe for book
-        let sub_book = serde_json::json!({
-            "method": "subscribe",
-            "params": {
-                "channel": "book",
-                "symbol": [ self.config.ticker ],
-                "depth": 10,
-                "snapshot": false
+            if ticker_config.subscribe_trades {
+                let sub_trade = serde_json::json!({
+                    "method": "subscribe",
+                    "params": {
+                        "channel": "trade",
+                        "symbol": [ symbol ]
+                    }
+                });
+                send_ws_message(&mut write, Message::Text(sub_trade.to_string())).await?;
+                println!("[kraken] Sent trade subscribe for {}", ticker_config.ticker);
             }
-        });
-        send_ws_message(&mut write, Message::Text(sub_book.to_string())).await?;
-        println!("[kraken] Sent book subscribe");
+
+            if ticker_config.subscribe_depth {
+                let sub_book = serde_json::json!({
+                    "method": "subscribe",
+                    "params": {
+                        "channel": "book",
+                        "symbol": [ symbol ],
+                        "depth": ticker_config.depth_value,
+                        "snapshot": false
+                    }
+                });
+                send_ws_message(&mut write, Message::Text(sub_book.to_string())).await?;
+                println!("[kraken] Sent book subscribe");
+            }
+        }
 
         Ok((write, read))
     }
@@ -104,6 +128,7 @@ impl KrakenConnector {
                 ));
             }
         };
+
 
         // We expect object messages for data (book/trade)
         let obj = match v.as_object() {
@@ -129,7 +154,6 @@ impl KrakenConnector {
             _ => println!("Unexpected channel {}", ch),
         }
 
-
         Ok(())
     }
 
@@ -140,13 +164,16 @@ impl KrakenConnector {
             .and_then(|d| d.as_array())
             .ok_or_else(|| ParsingError::MessageParsingError("book: missing data array".into()))?;
 
+
         for item in data {
             let entry: KrakenBookEntry = parse_json(&item.to_string())?;
 
+            let config = self.configs.get_by_symbol(&entry.symbol)?;
+
             for bid in entry.bids {
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
-                let price = bid.price * self.config.price_multiply;
-                let qty = bid.qty * self.config.quantity_multiply;
+                let price = bid.price * config.price_multiply;
+                let qty = bid.qty * config.quantity_multiply;
                 self.bus.levels.publish(LevelUpdated {
                     side: Side::Buy,
                     price: price as Price,
@@ -156,8 +183,8 @@ impl KrakenConnector {
             }
 
             for ask in entry.asks {
-                let price = ask.price * self.config.price_multiply;
-                let qty = ask.qty * self.config.quantity_multiply;
+                let price = ask.price * config.price_multiply;
+                let qty = ask.qty * config.quantity_multiply;
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 self.bus.levels.publish(LevelUpdated {
                     side: Side::Sell,
@@ -179,9 +206,10 @@ impl KrakenConnector {
 
         for item in data {
             let tr: KrakenTrade = parse_value(item.clone())?;
+            let config = self.configs.get_by_symbol(&tr.symbol)?;
 
-            let price_f = &tr.price * self.config.price_multiply;
-            let qty_f = &tr.qty * self.config.quantity_multiply;
+            let price_f = &tr.price * config.price_multiply;
+            let qty_f = &tr.qty * config.quantity_multiply;
             let ts = parse_timestamp_from_date_string(&tr.timestamp)?;
 
             let side = match tr.side.as_str() {
@@ -191,7 +219,7 @@ impl KrakenConnector {
             };
 
             let event = TradeEvent {
-                ticker: "temp".to_string(),
+                ticker: config.ticker.clone(),
                 exchange: "kraken".into(),
                 price: price_f as Price,
                 quantity: qty_f as Quantity,

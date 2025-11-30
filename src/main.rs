@@ -17,7 +17,7 @@ async fn main() {
 
     let mut builder = ConnectorBuilder::new(bus3)
         .ticker("BTC/USDT", 100, 100_000_000)
-        .ticker("ETH/USDT", 100, 1000_000)
+        // .ticker("ETH/USDT", 100, 1000_000)
         .subscribe_trades();
 
     let printer = tokio::spawn(async move {
@@ -37,7 +37,7 @@ async fn main() {
 
     let listener = tokio::spawn(async move {
         let mut connector = builder
-            .build_binance_connector()
+            .build_kraken_connector()
             .unwrap();
         connector.listen().await;
     });
