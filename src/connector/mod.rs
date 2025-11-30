@@ -1,7 +1,6 @@
 mod connector;
 mod connector_binance;
 mod errors;
-mod types;
 mod connector_kraken;
 mod builder;
 mod config;
