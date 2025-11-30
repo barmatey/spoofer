@@ -6,8 +6,8 @@ pub trait Connector {
 }
 
 pub struct ConnectorConfig {
-    pub price_multiply: f32,
-    pub quantity_multiply: f32,
+    pub price_multiply: f64,
+    pub quantity_multiply: f64,
     pub tickers: Vec<String>,
     pub subscribe_trades: bool,
     pub subscribe_depth: bool,
@@ -17,14 +17,14 @@ pub struct ConnectorConfig {
 
 impl ConnectorConfig {
     pub fn new(
-        price_multiply: f32,
-        quantity_multiply: f32,
+        price_multiply: f64,
+        quantity_multiply: f64,
         tickers: Vec<String>,
         subscribe_trades: bool,
         subscribe_depth: bool,
         depth_value: u8,
-    ) -> Self{
-        Self{
+    ) -> Self {
+        Self {
             price_multiply,
             quantity_multiply,
             tickers,
@@ -55,8 +55,12 @@ impl ConnectorConfig {
         false
     }
     fn validate_tickers(&mut self) {
+        if self.tickers.is_empty() {
+            let err = BuilderError("At list one ticker required".to_string());
+            self.errors.push(err);
+        }
         for t in self.tickers.iter() {
-            if self.is_valid_ticker(&t) {
+            if !self.is_valid_ticker(&t) {
                 let err = BuilderError(
                     format!("Ticker should be one of the following formats: AAPL for stocks; BTC/USD for cryptocurrencies. Your value is '{}'",
                             t

@@ -9,6 +9,8 @@ use crate::trade::TradeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use crate::connector::connector::ConnectorConfig;
+use crate::connector::errors::ConnectorError::BuilderError;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -44,19 +46,84 @@ struct AggTradeMessage {
     is_buyer_maker: bool,
 }
 
-pub struct BinanceConfig {
-    pub ticker: String,
-    pub price_multiply: f64,
-    pub quantity_multiply: f64,
+pub struct BinanceUrlBuilder<'a> {
+    config: &'a ConnectorConfig,
 }
+
+impl<'a> BinanceUrlBuilder<'a> {
+    pub fn new(config: &'a ConnectorConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn build_url(&self) -> Result<String, ConnectorError> {
+        let streams = self.build_streams()?;
+        Ok(format!(
+            "wss://stream.binance.com:9443/stream?streams={}",
+            streams.join("/")
+        ))
+    }
+
+    pub fn build_streams(&self) -> Result<Vec<String>, ConnectorError> {
+        let mut out = Vec::new();
+
+        for t in &self.config.tickers {
+            let normalized = Self::normalize_symbol(t);
+
+            out.extend(self.build_streams_for_symbol(&normalized));
+        }
+
+        if out.is_empty() {
+            return Err(BuilderError(
+                "No streams configured. Enable subscribe_trades/subscribe_depth and provide tickers"
+                    .to_string(),
+            ));
+        }
+
+        Ok(out)
+    }
+
+    pub fn normalize_symbol(raw: &str) -> String {
+        raw.chars()
+            .filter(|c| c.is_ascii_alphabetic()) // удаляем "/", "-" и всё лишнее
+            .flat_map(|c| c.to_lowercase())     // to_lowercase возвращает итератор
+            .collect()
+    }
+    fn build_streams_for_symbol(&self, symbol: &str) -> Vec<String> {
+        let mut streams = Vec::new();
+
+        if self.config.subscribe_depth {
+            streams.push(self.build_depth_stream(symbol));
+        }
+
+        if self.config.subscribe_trades {
+            streams.push(self.build_trades_stream(symbol));
+        }
+
+        streams
+    }
+
+    fn build_depth_stream(&self, symbol: &str) -> String {
+        if self.config.depth_value > 0 {
+            format!("{symbol}@depth{}@100ms", self.config.depth_value)
+        } else {
+            format!("{symbol}@depth@100ms")
+        }
+    }
+
+    fn build_trades_stream(&self, symbol: &str) -> String {
+        format!("{symbol}@aggTrade")
+    }
+}
+
+
 
 pub struct BinanceConnector {
     bus: Arc<Bus>,
-    config: BinanceConfig,
+    config: ConnectorConfig,
 }
 
 impl<'a> BinanceConnector {
-    pub fn new(bus: Arc<Bus>, config: BinanceConfig) -> Self {
+    pub fn new(bus: Arc<Bus>, config: ConnectorConfig) -> Self {
         Self { config, bus }
     }
 
@@ -112,10 +179,8 @@ impl<'a> BinanceConnector {
     }
 
     async fn connect(&self) -> Result<Connection, ConnectorError> {
-        let url = format!(
-            "wss://stream.binance.com:9443/stream?streams={}@depth@100ms/{}@aggTrade",
-            self.config.ticker, self.config.ticker,
-        );
+        let builder = BinanceUrlBuilder::new(&self.config);
+        let url = builder.build_url()?;
 
         connect_websocket(&url).await.map_err(|e| {
             eprintln!("Failed to connect websocket: {:?}", e);

@@ -1,30 +1,33 @@
-use crate::connector::errors::ConnectorError;
-use crate::connector::errors::ConnectorError::BuilderError;
-use crate::connector::{BinanceConnector, Connector};
-use std::any::TypeId;
 use crate::connector::connector::ConnectorConfig;
+use crate::connector::errors::ConnectorError;
+use crate::connector::{BinanceConnector};
+use crate::shared::Bus;
+use std::sync::Arc;
 
 pub struct ConnectorBuilder {
+    price_multiply: u32,
+    quantity_multiply: u32,
     subscribe_trades: bool,
     subscribe_depth: bool,
     depth_value: u8,
     tickers: Vec<String>,
     errors: Vec<ConnectorError>,
+    bus: Arc<Bus>,
 }
 
-
-
 impl ConnectorBuilder {
-    pub fn new() -> Self {
+    pub fn new(bus: Arc<Bus>) -> Self {
         Self {
+            price_multiply: 1,
+            quantity_multiply: 1,
             subscribe_trades: false,
             subscribe_depth: false,
             depth_value: 0,
             tickers: vec![],
             errors: vec![],
+            bus,
         }
     }
-
 
     pub fn tickers(mut self, value: &[&str]) -> Self {
         for &t in value {
@@ -45,16 +48,16 @@ impl ConnectorBuilder {
     }
     pub fn build_binance_connector(&mut self) -> Result<BinanceConnector, ConnectorError> {
         let mut config = ConnectorConfig::new(
-            1f32,
-            1f32,
-            self.tickers,
+            self.price_multiply as f64,
+            self.quantity_multiply as f64,
+            self.tickers.clone(),
             self.subscribe_trades,
             self.subscribe_depth,
             self.depth_value,
-
         );
         config.validate()?;
 
-        Ok(())
+        let connector = BinanceConnector::new(self.bus.clone(), config);
+        Ok(connector)
     }
 }
