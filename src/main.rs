@@ -32,7 +32,7 @@ async fn main() {
 
     let listener = tokio::spawn(async move {
         let mut connector = ConnectorBuilder::new(bus3)
-            .tickers(&["BTC/USDT", "ETH/USDT"])
+            .tickers("BTC/USDT", 100, 100_000_000)
             .subscribe_trades()
             .build_binance_connector()
             .unwrap();

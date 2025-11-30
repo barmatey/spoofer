@@ -59,6 +59,7 @@ fn build_ticker_map(configs: Vec<TickerConfig>) -> TickerMap {
     for tc in configs {
         result.register(tc);
     }
+    println!("{:?}", result);
     result
 }
 
@@ -141,7 +142,8 @@ impl<'a> BinanceConnector {
         &self,
         trade: AggTradeMessage,
     ) -> Result<TradeEvent, ConnectorError> {
-        let ticker_config = self.configs.get_by_symbol(&trade.symbol)?;
+        let ticker_config = self.configs.get_by_symbol(&trade.symbol.to_lowercase())?;
+
         let price = parse_number(&trade.price)? * ticker_config.price_multiply;
         let qty = parse_number(&trade.quantity)? * ticker_config.quantity_multiply;
 
@@ -162,7 +164,7 @@ impl<'a> BinanceConnector {
         let mut result =
             Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
 
-        let ticker_config = self.configs.get_by_symbol(&depth.symbol)?;
+        let ticker_config = self.configs.get_by_symbol(&depth.symbol.to_lowercase())?;
 
         for (price, quantity) in depth.bids_to_update.iter() {
             let price = parse_number(price)? * ticker_config.price_multiply;

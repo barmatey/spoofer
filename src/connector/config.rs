@@ -1,6 +1,7 @@
 use crate::connector::errors::ConnectorError;
 use crate::connector::errors::ConnectorError::BuilderError;
 
+#[derive(Debug)]
 pub struct TickerConfig {
     pub symbol: String,
     pub price_multiply: f64,

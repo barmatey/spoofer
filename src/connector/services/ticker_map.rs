@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 type Converter = fn(&str) -> String;
 
+#[derive(Debug)]
 pub struct TickerMap {
     symbols: HashMap<String, usize>,
     tickers: HashMap<String, usize>,
