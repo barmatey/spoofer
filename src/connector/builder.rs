@@ -1,6 +1,6 @@
-use crate::connector::connector::ConnectorConfig;
 use crate::connector::errors::ConnectorError;
-use crate::connector::{BinanceConnector};
+use crate::connector::errors::ConnectorError::OtherError;
+use crate::connector::BinanceConnector;
 use crate::shared::Bus;
 use std::sync::Arc;
 
@@ -47,17 +47,6 @@ impl ConnectorBuilder {
         self
     }
     pub fn build_binance_connector(&mut self) -> Result<BinanceConnector, ConnectorError> {
-        let mut config = ConnectorConfig::new(
-            self.price_multiply as f64,
-            self.quantity_multiply as f64,
-            self.tickers.clone(),
-            self.subscribe_trades,
-            self.subscribe_depth,
-            self.depth_value,
-        );
-        config.validate()?;
-
-        let connector = BinanceConnector::new(self.bus.clone(), config);
-        Ok(connector)
+        Err(OtherError("".to_string()))
     }
 }

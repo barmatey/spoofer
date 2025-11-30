@@ -31,18 +31,12 @@ async fn main() {
     });
 
     let listener = tokio::spawn(async move {
-        let connector =
-            ConnectorBuilder::new(bus3)
-                .tickers(&["BTC/USDT"])
-                .subscribe_trades()
-                .build_binance_connector();
-        match connector {
-            Ok(mut c) => {
-                println!("HERE");
-                c.listen().await;
-            },
-            Err(e) => println!("ERROR: {:?}", e),
-        }
+        let mut connector = ConnectorBuilder::new(bus3)
+            .tickers(&["BTC/USDT", "ETH/USDT"])
+            .subscribe_trades()
+            .build_binance_connector()
+            .unwrap();
+        connector.listen().await;
     });
 
     let _ = tokio::join!(printer, listener,);

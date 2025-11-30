@@ -1,14 +1,14 @@
 mod connector;
 mod connector_binance;
 mod errors;
-mod connector_bitstamp;
 mod types;
-mod services;
 mod connector_kraken;
 mod builder;
+mod config;
+
+mod services;
 
 pub use connector::Connector;
 pub use connector_binance::{BinanceConnector};
-pub use connector_bitstamp::{BitstampConnector, BitstampConnectorConfig};
 pub use connector_kraken::{KrakenConnector, KrakenConfig};
 pub use builder::ConnectorBuilder;

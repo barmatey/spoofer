@@ -1,17 +1,12 @@
-use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError};
-use crate::shared::TimestampMS;
-use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::SinkExt;
-use futures_util::StreamExt;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
+use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio::time::sleep;
-use tokio_tungstenite::connect_async;
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::MaybeTlsStream;
-use tokio_tungstenite::WebSocketStream;
 use url::Url;
+use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError};
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
@@ -89,42 +84,4 @@ where
     }
 
     Ok(())
-}
-
-pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
-    let result = serde_json::from_str::<T>(s);
-    match result {
-        Ok(r) => Ok(r),
-        Err(e) => Err(ParsingError::SerdeParseError(e))?,
-    }
-}
-
-pub fn parse_value<T: serde::de::DeserializeOwned>(
-    value: serde_json::Value,
-) -> Result<T, ConnectorError> {
-    let result = serde_json::from_value::<T>(value);
-    match result {
-        Ok(r) => Ok(r),
-        Err(e) => Err(ParsingError::SerdeParseError(e))?,
-    }
-}
-
-pub fn parse_number(s: &str) -> Result<f64, ParsingError> {
-    let result = serde_json::from_str::<f64>(s);
-    match result {
-        Ok(r) => Ok(r),
-        Err(e) => Err(ParsingError::ConvertingError(format!("{}", e))),
-    }
-}
-
-pub fn parse_timestamp(s: &str) -> Result<TimestampMS, ParsingError> {
-    s.parse::<TimestampMS>()
-        .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
-}
-
-pub fn parse_timestamp_from_date_string(s: &str) -> Result<TimestampMS, ParsingError> {
-    let dt = DateTime::parse_from_rfc3339(s)
-        .map_err(|e| ParsingError::ConvertingError(format!("Failed to parse datetime: {}", e)))?;
-    let timestamp_ms = dt.with_timezone(&Utc).timestamp_millis();
-    Ok(timestamp_ms as TimestampMS)
 }

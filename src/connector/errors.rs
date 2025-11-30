@@ -36,4 +36,7 @@ pub enum ConnectorError {
 
     #[error("Builder Error")]
     BuilderError(String),
+    
+    #[error("Other Error")]
+    OtherError(String)
 }
