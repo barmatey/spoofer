@@ -33,4 +33,7 @@ pub enum ConnectorError {
 
     #[error("Websocket disconnected")]
     WebsocketError(#[from] WebsocketError),
+
+    #[error("Builder Error")]
+    BuilderError(String),
 }

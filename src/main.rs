@@ -1,4 +1,4 @@
-use crate::connector::{BinanceConnector, BinanceConnectorConfig, BitstampConnector, BitstampConnectorConfig, Connector, KrakenConnector, KrakenConnectorConfig};
+use crate::connector::{BinanceConnector, BinanceConfig, BitstampConnector, BitstampConnectorConfig, Connector, KrakenConnector, KrakenConfig};
 use crate::shared::Bus;
 use std::sync::Arc;
 
@@ -15,7 +15,7 @@ async fn main() {
     let bus2 = bus.clone();
     let bus3 = bus.clone();
 
-    let config = KrakenConnectorConfig {
+    let config = KrakenConfig {
         ticker: "BTC/USDT".to_string(), // не "BTC-USD"
         price_multiply: 1000.0,
         quantity_multiply: 100_000_000.0,

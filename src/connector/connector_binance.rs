@@ -44,7 +44,7 @@ struct AggTradeMessage {
     is_buyer_maker: bool,
 }
 
-pub struct BinanceConnectorConfig {
+pub struct BinanceConfig {
     pub ticker: String,
     pub price_multiply: f64,
     pub quantity_multiply: f64,
@@ -52,11 +52,11 @@ pub struct BinanceConnectorConfig {
 
 pub struct BinanceConnector {
     bus: Arc<Bus>,
-    config: BinanceConnectorConfig,
+    config: BinanceConfig,
 }
 
 impl<'a> BinanceConnector {
-    pub fn new(bus: Arc<Bus>, config: BinanceConnectorConfig) -> Self {
+    pub fn new(bus: Arc<Bus>, config: BinanceConfig) -> Self {
         Self { config, bus }
     }
 

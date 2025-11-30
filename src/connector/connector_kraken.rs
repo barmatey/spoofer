@@ -17,7 +17,7 @@ use tokio_tungstenite::tungstenite::Message;
 // Config
 // =============================
 
-pub struct KrakenConnectorConfig {
+pub struct KrakenConfig {
     pub ticker: String,
     pub price_multiply: f64,
     pub quantity_multiply: f64,
@@ -54,11 +54,11 @@ struct KrakenTrade {
 
 pub struct KrakenConnector {
     bus: Arc<Bus>,
-    config: KrakenConnectorConfig,
+    config: KrakenConfig,
 }
 
 impl KrakenConnector {
-    pub fn new(bus: Arc<Bus>, config: KrakenConnectorConfig) -> Self {
+    pub fn new(bus: Arc<Bus>, config: KrakenConfig) -> Self {
         Self { bus, config }
     }
 
