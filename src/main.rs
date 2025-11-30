@@ -1,4 +1,4 @@
-use crate::connector::{BinanceConnector, BinanceConnectorConfig, BitstampConnector, BitstampConnectorConfig, Connector};
+use crate::connector::{BinanceConnector, BinanceConnectorConfig, BitstampConnector, BitstampConnectorConfig, Connector, KrakenConnector, KrakenConnectorConfig};
 use crate::shared::Bus;
 use std::sync::Arc;
 
@@ -15,8 +15,8 @@ async fn main() {
     let bus2 = bus.clone();
     let bus3 = bus.clone();
 
-    let config = BitstampConnectorConfig {
-        ticker: "btcusd".to_string(), // не "BTC-USD"
+    let config = KrakenConnectorConfig {
+        ticker: "BTC/USDT".to_string(), // не "BTC-USD"
         price_multiply: 1000.0,
         quantity_multiply: 100_000_000.0,
     };
@@ -29,15 +29,15 @@ async fn main() {
             }
 
             let events = bus2.levels.pull();
-            // for ev in events {
-            //     println!("{:?}", ev);
-            // }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            for ev in events.iter().take(1) {
+                // println!("{:?}", ev);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(3_000)).await;
         }
     });
 
     let listener = tokio::spawn(async move {
-        let mut connector = BitstampConnector::new(bus.clone(), config);
+        let mut connector = KrakenConnector::new(bus.clone(), config);
         connector.listen().await;
     });
 

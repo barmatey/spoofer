@@ -52,6 +52,7 @@ where
     loop {
         tokio::select! {
             msg = read.next() => {
+                // println!("{:?}", msg);
                 match msg {
                     Some(Ok(Message::Text(txt))) => {
                         if let Err(err) = process_message(&txt) {
@@ -90,12 +91,37 @@ where
 }
 
 pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
-    serde_json::from_str::<T>(s).map_err(|e| ConnectorError::from(ParsingError::SerdeParseError(e)))
+    let result = serde_json::from_str::<T>(s);
+    match result {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            eprint!("Problem with parsing json {}", s);
+            Err(ParsingError::SerdeParseError(e))?
+        }
+    }
 }
 
+pub fn parse_value<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, ConnectorError> {
+    let result = serde_json::from_value::<T>(value);
+    match result {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            eprint!("Problem with parsing value: {:?}", e);
+            Err(ParsingError::SerdeParseError(e))?
+        }
+    }
+}
+
+
 pub fn parse_number(s: &str) -> Result<f64, ParsingError> {
-    s.parse::<f64>()
-        .map_err(|e| ParsingError::ConvertingError(format!("{}", e)))
+    let result = serde_json::from_str::<f64>(s);
+    match result {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            eprint!("Problem with parsing number {}", s);
+            Err(ParsingError::ConvertingError(format!("{}", e)))
+        }
+    }
 }
 
 pub fn parse_timestamp(s: &str) -> Result<TimestampMS, ParsingError> {

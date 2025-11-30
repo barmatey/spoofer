@@ -10,7 +10,7 @@ pub enum ParsingError {
     #[error("URL parsing error: {0}")]
     UrlParseError(#[from] UrlParseError),
 
-    #[error("Converting error: {0}")]
+    #[error("MessageParsingError error: {0}")]
     MessageParsingError(String),
 
     #[error("Converting error: {0}")]
