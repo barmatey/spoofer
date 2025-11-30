@@ -25,7 +25,7 @@ impl ConnectorBuilder {
         }
     }
 
-    pub fn tickers(mut self, ticker: &str, price_mult: u32, quantity_mult: u32) -> Self {
+    pub fn ticker(mut self, ticker: &str, price_mult: u32, quantity_mult: u32) -> Self {
         self.tickers
             .push((ticker.to_string(), price_mult as f64, quantity_mult as f64));
         self

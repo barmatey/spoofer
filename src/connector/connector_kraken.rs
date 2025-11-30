@@ -191,6 +191,7 @@ impl KrakenConnector {
             };
 
             let event = TradeEvent {
+                ticker: "temp".to_string(),
                 exchange: "kraken".into(),
                 price: price_f as Price,
                 quantity: qty_f as Quantity,
