@@ -83,7 +83,7 @@ impl<'a> BinanceUrlBuilder<'a> {
         let mut out = Vec::new();
 
         for cfg in self.configs {
-            let symbol = convert_ticker_into_binance_symbol(&cfg.symbol);
+            let symbol = convert_ticker_into_binance_symbol(&cfg.ticker);
             out.extend(self.build_streams_for_symbol(cfg, &symbol));
         }
 
@@ -147,6 +147,7 @@ impl<'a> BinanceConnector {
         let qty = parse_number(&trade.quantity)? * ticker_config.quantity_multiply;
 
         let event = TradeEvent {
+            ticker: ticker_config.ticker.clone(),
             exchange: "binance".to_string(),
             price: price as Price,
             quantity: qty as Quantity,

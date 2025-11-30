@@ -24,8 +24,8 @@ impl TickerMap {
     }
 
     pub fn register(&mut self, ticker_config: TickerConfig) {
-        let symbol = (self.converter)(&ticker_config.symbol);
-        let ticker = ticker_config.symbol.clone();
+        let symbol = (self.converter)(&ticker_config.ticker);
+        let ticker = ticker_config.ticker.clone();
 
         self.data.push(ticker_config);
         self.tickers.insert(ticker, self.data.len() - 1);

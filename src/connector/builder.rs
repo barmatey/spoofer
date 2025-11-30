@@ -45,7 +45,7 @@ impl ConnectorBuilder {
         let mut ticker_configs = Vec::new();
         for (ticker, price_mult, quantity_mult) in self.tickers.iter() {
             let tc = TickerConfig {
-                symbol: ticker.clone(),
+                ticker: ticker.clone(),
                 price_multiply: *price_mult,
                 quantity_multiply: *quantity_mult,
                 subscribe_trades: self.subscribe_trades,

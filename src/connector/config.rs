@@ -3,7 +3,7 @@ use crate::connector::errors::ConnectorError::BuilderError;
 
 #[derive(Debug)]
 pub struct TickerConfig {
-    pub symbol: String,
+    pub ticker: String,
     pub price_multiply: f64,
     pub quantity_multiply: f64,
     pub subscribe_trades: bool,
@@ -43,10 +43,10 @@ impl<'a> TickerConfigValidator<'a> {
         false
     }
     fn validate_symbol(&mut self) {
-        if !self.is_valid_symbol(&self.ticker.symbol) {
+        if !self.is_valid_symbol(&self.ticker.ticker) {
             let err = BuilderError(
                 format!("Ticker should be one of the following formats: AAPL for stocks; BTC/USD for cryptocurrencies. Your value is '{}'",
-                        self.ticker.symbol
+                        self.ticker.ticker
                 ));
             self.errors.push(err);
         }
