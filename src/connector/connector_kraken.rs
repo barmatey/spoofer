@@ -1,13 +1,14 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::services::{connect_websocket, parse_json, parse_number, parse_timestamp, parse_value, send_ws_message, websocket_event_loop, Connection};
+use crate::connector::services::{
+    connect_websocket, parse_json, parse_timestamp_from_date_string,
+    parse_value, send_ws_message, websocket_event_loop, Connection,
+};
 use crate::connector::Connector;
 use crate::level2::LevelUpdated;
-use crate::shared::{Bus, Price, Quantity, Side, TimestampMS};
+use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
 use crate::connector::errors::ParsingError::ConvertingError;
-use chrono::Utc;
-use futures_util::SinkExt;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
@@ -30,14 +31,13 @@ pub struct KrakenConnectorConfig {
 struct BookSide {
     price: f64,
     qty: f64,
-    timestamp: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct KrakenBookEntry {
     bids: Vec<BookSide>,
     asks: Vec<BookSide>,
-    symbol: Option<String>,
+    timestamp: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,26 +108,29 @@ impl KrakenConnector {
         };
 
         // We expect object messages for data (book/trade)
-        if let Some(obj) = v.as_object() {
-            if let Some(ch) = obj.get("channel").and_then(|c| c.as_str()) {
-                match ch {
-                    "book" => {
-                        self.handle_book(obj)?;
-                    }
-                    "trade" => {
-                        self.handle_trade(obj)?;
-                    }
-                    "heartbeat" => {}
-                    _ => {
-                        println!("Unexpected channel {}", ch);
-                    }
-                }
-            } else {
-                println!("Channel is None")
+        let obj = match v.as_object() {
+            Some(o) => o,
+            None => {
+                println!("Object is None");
+                return Ok(());
             }
-        } else {
-            println!("Object is None")
+        };
+
+        let ch = match obj.get("channel").and_then(|c| c.as_str()) {
+            Some(c) => c,
+            None => {
+                println!("Channel is None");
+                return Ok(());
+            }
+        };
+
+        match ch {
+            "book" => self.handle_book(obj)?,
+            "trade" => self.handle_trade(obj)?,
+            "heartbeat" => { /* ignore */ }
+            _ => println!("Unexpected channel {}", ch),
         }
+
 
         Ok(())
     }
@@ -140,11 +143,10 @@ impl KrakenConnector {
             .ok_or_else(|| ParsingError::MessageParsingError("book: missing data array".into()))?;
 
         for item in data {
-            // Try to parse book entry
             let entry: KrakenBookEntry = parse_json(&item.to_string())?;
 
             for bid in entry.bids {
-                let ts = parse_timestamp(&bid.timestamp)?;
+                let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 let price = bid.price * self.config.price_multiply;
                 let qty = bid.qty * self.config.quantity_multiply;
                 self.bus.levels.publish(LevelUpdated {
@@ -158,7 +160,7 @@ impl KrakenConnector {
             for ask in entry.asks {
                 let price = ask.price * self.config.price_multiply;
                 let qty = ask.qty * self.config.quantity_multiply;
-                let ts = parse_timestamp(&ask.timestamp)?;
+                let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 self.bus.levels.publish(LevelUpdated {
                     side: Side::Sell,
                     price: price as Price,
@@ -182,7 +184,7 @@ impl KrakenConnector {
 
             let price_f = &tr.price * self.config.price_multiply;
             let qty_f = &tr.qty * self.config.quantity_multiply;
-            let ts = parse_timestamp(&tr.timestamp)?;
+            let ts = parse_timestamp_from_date_string(&tr.timestamp)?;
 
             let side = match tr.side.as_str() {
                 "buy" => Side::Buy,
