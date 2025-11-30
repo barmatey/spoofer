@@ -171,6 +171,8 @@ impl<'a> BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             result.push(LevelUpdated {
+                exchange: "binance".to_string(),
+                ticker: ticker_config.ticker.clone(),
                 side: Side::Buy,
                 price: price as Price,
                 quantity: quantity as Quantity,
@@ -183,6 +185,8 @@ impl<'a> BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             result.push(LevelUpdated {
+                exchange: "binance".to_string(),
+                ticker: ticker_config.ticker.clone(),
                 side: Side::Sell,
                 price: price as Price,
                 quantity: quantity as Quantity,

@@ -65,6 +65,7 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
 pub struct KrakenConnector {
     bus: Arc<Bus>,
     configs: TickerMap,
+    exchange_name: String,
 }
 
 impl KrakenConnector {
@@ -72,6 +73,7 @@ impl KrakenConnector {
         Self {
             bus,
             configs: build_ticker_map(config),
+            exchange_name: "kraken".to_string(),
         }
     }
 
@@ -175,6 +177,8 @@ impl KrakenConnector {
                 let price = bid.price * config.price_multiply;
                 let qty = bid.qty * config.quantity_multiply;
                 self.bus.levels.publish(LevelUpdated {
+                    ticker: config.ticker.clone(),
+                    exchange: self.exchange_name.clone(),
                     side: Side::Buy,
                     price: price as Price,
                     quantity: qty as Quantity,
@@ -187,6 +191,8 @@ impl KrakenConnector {
                 let qty = ask.qty * config.quantity_multiply;
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 self.bus.levels.publish(LevelUpdated {
+                    exchange: self.exchange_name.clone(),
+                    ticker: config.ticker.clone(),
                     side: Side::Sell,
                     price: price as Price,
                     quantity: qty as Quantity,
@@ -220,7 +226,7 @@ impl KrakenConnector {
 
             let event = TradeEvent {
                 ticker: config.ticker.clone(),
-                exchange: "kraken".into(),
+                exchange: self.exchange_name.clone(),
                 price: price_f as Price,
                 quantity: qty_f as Quantity,
                 timestamp: ts,

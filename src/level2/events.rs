@@ -2,6 +2,8 @@ use crate::shared::{Price, Quantity, Side, TimestampMS};
 
 #[derive(Debug)]
 pub struct LevelUpdated {
+    pub exchange: String,
+    pub ticker: String,
     pub side: Side,
     pub price: Price,
     pub quantity: Quantity,
