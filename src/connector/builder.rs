@@ -9,7 +9,6 @@ pub struct ConnectorBuilder {
     subscribe_depth: bool,
     depth_value: u8,
     tickers: Vec<(String, f64, f64)>,
-    errors: Vec<ConnectorError>,
     bus: Arc<Bus>,
 }
 
@@ -20,7 +19,6 @@ impl ConnectorBuilder {
             subscribe_depth: false,
             depth_value: 0,
             tickers: vec![],
-            errors: vec![],
             bus,
         }
     }
