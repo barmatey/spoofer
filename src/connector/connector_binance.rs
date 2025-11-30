@@ -59,7 +59,6 @@ fn build_ticker_map(configs: Vec<TickerConfig>) -> TickerMap {
     for tc in configs {
         result.register(tc);
     }
-    println!("{:?}", result);
     result
 }
 
