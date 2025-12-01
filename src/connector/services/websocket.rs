@@ -9,7 +9,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
 use crate::connector::errors::{Error, ParsingError, WebsocketError, };
-use crate::connector::errors::Error::OtherError;
+use crate::connector::errors::Error::InternalError;
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
@@ -106,7 +106,7 @@ pub fn websocket_stream(
                         }
                         Some(Ok(Message::Ping(payload))) => {
                             if let Err(e) = write.send(Message::Pong(payload)).await {
-                                yield Err(OtherError(e.to_string()))?;
+                                yield Err(InternalError(e.to_string()))?;
                             }
                         }
                         Some(Ok(Message::Pong(_))) => {
@@ -116,7 +116,7 @@ pub fn websocket_stream(
                             // ignore non-text
                         }
                         Some(Err(err)) => {
-                                yield Err(OtherError(err.to_string()))?;
+                                yield Err(InternalError(err.to_string()))?;
                         }
                         None => {
                             break; // socket closed
@@ -126,7 +126,7 @@ pub fn websocket_stream(
 
                 _ = sleep(Duration::from_secs(20)) => {
                     if let Err(err) = write.send(Message::Ping(vec![])).await {
-                        yield Err(OtherError(err.to_string()))?;
+                        yield Err(InternalError(err.to_string()))?;
                     }
                 }
             }

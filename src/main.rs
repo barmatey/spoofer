@@ -18,7 +18,6 @@ async fn main() {
         .subscribe_depth(8)
         .subscribe_trades();
 
-    let _binance = builder.build_binance_connector().unwrap();
     let kraken = builder.build_kraken_connector().unwrap();
 
     // 1) создаём стрим

@@ -36,6 +36,9 @@ pub enum Error {
     #[error("HTTP request error: {0}")]
     RequestError(#[from] reqwest::Error),
 
-    #[error("Other Error")]
+    #[error("InternalError")]
+    InternalError(String),
+
+    #[error("OtherError")]
     OtherError(String),
 }

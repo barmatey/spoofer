@@ -1,19 +1,23 @@
-use std::collections::HashSet;
 use crate::connector::errors::Error;
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
+use std::collections::HashSet;
 
 use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
-use crate::connector::services::parser::{get_serde_object, get_serde_value, parse_json, parse_timestamp_from_date_string, parse_value};
+use crate::connector::services::parser::{
+    get_serde_object, get_serde_value, parse_json, parse_timestamp_from_date_string, parse_value,
+};
 use crate::connector::services::ticker_map::TickerMap;
+use crate::connector::services::validators::check_symbol_exist;
 use crate::connector::services::websocket::{connect_websocket, send_ws_message, Connection};
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
+use url::quirks::search;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -60,7 +64,6 @@ async fn fetch_kraken_pairs() -> Result<HashSet<String>, Error> {
 
     Ok(pairs)
 }
-
 
 pub struct KrakenConnector {
     configs: TickerMap,
@@ -169,12 +172,13 @@ impl KrakenConnector {
 impl ConnectorInternal for KrakenConnector {
     async fn connect(&self) -> Result<Connection, Error> {
         let url = "wss://ws.kraken.com/v2";
-        println!("[kraken] Connecting to {}", url);
         let (mut write, read) = connect_websocket(url).await?;
-        println!("[kraken] Connected");
+
+        let valid_symbols = fetch_kraken_pairs().await?;
 
         for ticker_config in self.configs.get_all_configs() {
             let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
+            check_symbol_exist(&self.exchange_name, &symbol, &valid_symbols)?;
 
             if ticker_config.subscribe_trades {
                 let sub_trade = serde_json::json!({
