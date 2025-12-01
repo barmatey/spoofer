@@ -18,7 +18,9 @@ async fn main() {
     let mut builder = ConnectorBuilder::new(bus3)
         .ticker("BTC/USDT", 100, 100_000_000)
         // .ticker("ETH/USDT", 100, 1000_000)
+        .subscribe_depth(8)
         .subscribe_trades();
+
 
     let printer = tokio::spawn(async move {
         loop {
@@ -29,7 +31,7 @@ async fn main() {
 
             let events = bus2.levels.pull();
             for ev in events.iter().take(1) {
-                // println!("{:?}", ev);
+                println!("{:?}", ev);
             }
             tokio::time::sleep(std::time::Duration::from_millis(3_000)).await;
         }

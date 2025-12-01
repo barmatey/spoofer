@@ -85,9 +85,7 @@ impl KrakenConnector {
 
         // Send subscribe for trades
         for ticker_config in self.configs.get_all_configs() {
-            let symbol = self
-                .configs
-                .get_symbol_from_ticker(&ticker_config.ticker);
+            let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
 
             if ticker_config.subscribe_trades {
                 let sub_trade = serde_json::json!({
@@ -112,7 +110,10 @@ impl KrakenConnector {
                     }
                 });
                 send_ws_message(&mut write, Message::Text(sub_book.to_string())).await?;
-                println!("[kraken] Sent book subscribe");
+                println!(
+                    "[kraken] Sent book subscribe for {} with {} depth",
+                    symbol, ticker_config.depth_value
+                );
             }
         }
 
@@ -130,7 +131,6 @@ impl KrakenConnector {
                 ));
             }
         };
-
 
         // We expect object messages for data (book/trade)
         let obj = match v.as_object() {
@@ -152,6 +152,7 @@ impl KrakenConnector {
         match ch {
             "book" => self.handle_book(obj)?,
             "trade" => self.handle_trade(obj)?,
+            "status" => println!("{}", ch.to_string()),
             "heartbeat" => { /* ignore */ }
             _ => println!("Unexpected channel {}", ch),
         }
@@ -160,12 +161,12 @@ impl KrakenConnector {
     }
 
     fn handle_book(&mut self, obj: &serde_json::Map<String, Value>) -> Result<(), ConnectorError> {
+        println!("handle_book KRAKEN");
         // Extract data array
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())
             .ok_or_else(|| ParsingError::MessageParsingError("book: missing data array".into()))?;
-
 
         for item in data {
             let entry: KrakenBookEntry = parse_json(&item.to_string())?;

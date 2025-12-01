@@ -7,7 +7,7 @@ mod config;
 
 mod services;
 
-pub use connector::Connector;
+pub use connector::{Connector, Event};
 pub use connector_binance::{BinanceConnector};
 pub use connector_kraken::{KrakenConnector, KrakenConfig};
 pub use builder::ConnectorBuilder;

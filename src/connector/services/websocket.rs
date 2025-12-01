@@ -1,4 +1,6 @@
 use std::time::Duration;
+use async_stream::try_stream;
+use futures::Stream;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
@@ -6,7 +8,7 @@ use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
-use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError};
+use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError, };
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
@@ -84,4 +86,49 @@ where
     }
 
     Ok(())
+}
+
+
+pub fn websocket_stream(
+    mut write: ConnSink,
+    mut read: ConnStream,
+) -> impl Stream<Item = Result<String, ConnectorError>> {
+
+    try_stream! {
+        loop {
+            tokio::select! {
+
+                msg = read.next() => {
+                    match msg {
+                        Some(Ok(Message::Text(txt))) => {
+                            yield txt;
+                        }
+                        Some(Ok(Message::Ping(payload))) => {
+                            if let Err(e) = write.send(Message::Pong(payload)).await {
+                                yield Err(OtherError(e.to_string()))?;
+                            }
+                        }
+                        Some(Ok(Message::Pong(_))) => {
+                            // ignore
+                        }
+                        Some(Ok(_)) => {
+                            // ignore non-text
+                        }
+                        Some(Err(err)) => {
+                                yield Err(OtherError(err.to_string()))?;
+                        }
+                        None => {
+                            break; // socket closed
+                        }
+                    }
+                },
+
+                _ = sleep(Duration::from_secs(20)) => {
+                    if let Err(err) = write.send(Message::Ping(vec![])).await {
+                        yield Err(OtherError(err.to_string()))?;
+                    }
+                }
+            }
+        }
+    }
 }
