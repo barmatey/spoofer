@@ -22,8 +22,25 @@ impl<'a> TickerConfigValidator<'a> {
             errors: vec![],
         }
     }
-    fn is_valid_symbol(&self, _t: &str) -> bool {
-        true
+    fn is_valid_symbol(&self, t: &str) -> bool {
+        // ABC
+        if t.len() >= 1 && t.len() <= 10 && t.chars().all(|c| c.is_ascii_alphabetic()) {
+            return true;
+        }
+
+        if let Some((base, quote)) = t.split_once('/') {
+            if base.len() >= 1
+                && base.len() <= 10
+                && quote.len() >= 1
+                && quote.len() <= 10
+                && base.chars().all(|c| c.is_ascii_alphabetic())
+                && quote.chars().all(|c| c.is_ascii_alphabetic())
+            {
+                return true;
+            }
+        }
+
+        false
     }
     fn validate_symbol(&mut self) {
         if !self.is_valid_symbol(&self.ticker.ticker) {
