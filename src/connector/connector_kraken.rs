@@ -215,7 +215,7 @@ impl ConnectorInternal for KrakenConnector {
                 println!("{}", channel.to_string());
             }
             "heartbeat" => {}
-            _ => println!("Unexpected channel {}", channel),
+            _ => Err(KrakenError(format!("Unexpected channel {}", channel)))?,
         };
         Ok(())
     }
