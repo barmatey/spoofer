@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::connector::errors::ConnectorError;
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
@@ -7,9 +8,7 @@ use crate::trade::TradeEvent;
 use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
-use crate::connector::services::parser::{
-    get_serde_object, parse_json, parse_timestamp_from_date_string, parse_value,
-};
+use crate::connector::services::parser::{get_serde_object, get_serde_value, parse_json, parse_timestamp_from_date_string, parse_value};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, send_ws_message, Connection};
 use serde::Deserialize;
@@ -46,6 +45,22 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
     }
     result
 }
+
+async fn fetch_kraken_pairs() -> Result<HashSet<String>, ConnectorError> {
+    let url = "https://api.kraken.com/0/public/AssetPairs";
+    let resp = reqwest::get(url).await?;
+    let value: Value = resp.json().await?;
+
+    let pairs = value["result"]
+        .as_object()
+        .ok_or_else(|| MessageParsingError("invalid pairs response".into()))?
+        .keys()
+        .cloned()
+        .collect::<HashSet<_>>();
+
+    Ok(pairs)
+}
+
 
 pub struct KrakenConnector {
     configs: TickerMap,

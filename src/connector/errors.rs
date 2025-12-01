@@ -1,14 +1,10 @@
-use serde_json::Error;
-use thiserror::Error;
-use url::ParseError as UrlParseError;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ParsingError {
     #[error("Level2 parsing error")]
-    SerdeParseError(#[from] Error),
+    SerdeError(#[from] serde_json::Error),
 
     #[error("URL parsing error: {0}")]
-    UrlParseError(#[from] UrlParseError),
+    UrlParseError(#[from] url::ParseError),
 
     #[error("MessageParsingError error: {0}")]
     MessageParsingError(String),
@@ -17,7 +13,7 @@ pub enum ParsingError {
     ConvertingError(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum WebsocketError {
     #[error("Websocket connection failed")]
     ConnectionFailed,
@@ -26,7 +22,7 @@ pub enum WebsocketError {
     SendMessageFailed,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConnectorError {
     #[error("Parsing failed: {0}")]
     ParsingError(#[from] ParsingError),
@@ -36,7 +32,10 @@ pub enum ConnectorError {
 
     #[error("Builder Error")]
     BuilderError(String),
-    
+
+    #[error("HTTP request error: {0}")]
+    RequestError(#[from] reqwest::Error),
+
     #[error("Other Error")]
-    OtherError(String)
+    OtherError(String),
 }

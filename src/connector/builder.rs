@@ -59,8 +59,8 @@ impl ConnectorBuilder {
         Ok(BinanceConnector::new(config))
     }
 
-    // pub fn build_kraken_connector(&mut self) -> Result<KrakenConnector, ConnectorError> {
-    //     let config = self.build_config()?;
-    //     Ok(KrakenConnector::new(self.bus.clone(), config))
-    // }
+    pub fn build_kraken_connector(&mut self) -> Result<KrakenConnector, ConnectorError> {
+        let config = self.build_config()?;
+        Ok(KrakenConnector::new(config))
+    }
 }

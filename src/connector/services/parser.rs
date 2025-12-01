@@ -25,7 +25,7 @@ pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Connecto
     let result = serde_json::from_str::<T>(s);
     match result {
         Ok(r) => Ok(r),
-        Err(e) => Err(ParsingError::SerdeParseError(e))?,
+        Err(e) => Err(ParsingError::SerdeError(e))?,
     }
 }
 
@@ -35,7 +35,7 @@ pub fn parse_value<T: serde::de::DeserializeOwned>(
     let result = serde_json::from_value::<T>(value);
     match result {
         Ok(r) => Ok(r),
-        Err(e) => Err(ParsingError::SerdeParseError(e))?,
+        Err(e) => Err(ParsingError::SerdeError(e))?,
     }
 }
 
