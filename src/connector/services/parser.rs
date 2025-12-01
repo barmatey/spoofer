@@ -1,7 +1,25 @@
+use crate::connector::errors::ParsingError::MessageParsingError;
 use crate::connector::errors::{ConnectorError, ParsingError};
 use crate::shared::TimestampMS;
 use chrono::{DateTime, Utc};
+use serde_json::{Map, Value};
 
+pub fn get_serde_value(raw: &str) -> Result<Value, ConnectorError> {
+    let result = serde_json::from_str::<Value>(raw).map_err(|e| {
+        eprintln!("[kraken] JSON parse error: {:?}, raw: {}", e, raw);
+        MessageParsingError(format!("JSON parse error: {:?}", e))
+    })?;
+    Ok(result)
+}
+
+pub fn get_serde_object(raw: &str) -> Result<Map<String, Value>, ConnectorError> {
+    let v = get_serde_value(raw)?;
+
+    match v.as_object() {
+        Some(obj) => Ok(obj.to_owned()),
+        None => Err(MessageParsingError("JSON is not an object".to_string()))?,
+    }
+}
 
 pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
     let result = serde_json::from_str::<T>(s);
@@ -40,5 +58,3 @@ pub fn parse_timestamp_from_date_string(s: &str) -> Result<TimestampMS, ParsingE
     let timestamp_ms = dt.with_timezone(&Utc).timestamp_millis();
     Ok(timestamp_ms as TimestampMS)
 }
-
-

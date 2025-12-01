@@ -1,18 +1,15 @@
-use async_stream::stream;
-use crate::connector::errors::ConnectorError::BuilderError;
-use crate::connector::errors::{ConnectorError, ParsingError};
+use crate::connector::errors::ConnectorError::{BuilderError};
+use crate::connector::errors::{ConnectorError};
 
 use crate::connector::config::{ConnectorConfig, TickerConfig};
-use crate::connector::services::parser::{parse_json, parse_number};
+use crate::connector::errors::ParsingError::MessageParsingError;
+use crate::connector::services::parser::{get_serde_value, parse_json, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
-use crate::connector::services::websocket::{
-    connect_websocket, websocket_stream, Connection,
-};
+use crate::connector::services::websocket::{connect_websocket, Connection};
 use crate::connector::{Connector, Event};
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
-use futures_util::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -186,8 +183,8 @@ impl<'a> BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             result.push(LevelUpdated {
-                exchange: "binance".to_string(),
                 ticker: ticker_config.ticker.clone(),
+                exchange: "binance".to_string(),
                 side: Side::Sell,
                 price: price as Price,
                 quantity: quantity as Quantity,
@@ -196,47 +193,6 @@ impl<'a> BinanceConnector {
         }
 
         Ok(result)
-    }
-
-    async fn connect(&self) -> Result<Connection, ConnectorError> {
-        let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
-        let url = builder.build_url()?;
-
-        connect_websocket(&url).await.map_err(|e| {
-            eprintln!("Failed to connect websocket: {:?}", e);
-            ConnectorError::from(e)
-        })
-    }
-
-    fn process_message(&self, txt: &str) -> Result<Vec<Event>, ConnectorError> {
-        let wrapper: Value = serde_json::from_str(txt).map_err(|e| {
-            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
-                "Failed to parse wrapper: {:?}, error: {:?}",
-                txt, e
-            )))
-        })?;
-
-        let data = wrapper.get("data").ok_or_else(|| {
-            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
-                "Missing 'data' field in wrapper: {}",
-                txt
-            )))
-        })?;
-
-        let event_type = data.get("e").and_then(|v| v.as_str()).ok_or_else(|| {
-            ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
-                "Missing 'e' field in data: {}",
-                data
-            )))
-        })?;
-
-        match event_type {
-            "depthUpdate" => self.handle_depth_message(data),
-            "aggTrade" => self.handle_agg_trade_message(data),
-            other => Err(ConnectorError::ParsingError(
-                ParsingError::MessageParsingError(format!("Unknown event type: {}", other)),
-            )),
-        }
     }
 
     fn handle_depth_message(&self, data: &Value) -> Result<Vec<Event>, ConnectorError> {
@@ -259,38 +215,35 @@ impl<'a> BinanceConnector {
 }
 
 impl Connector for BinanceConnector {
-    async fn stream(&self) -> Result<impl Stream<Item = Event>, ConnectorError> {
-        let (write, read) = self.connect().await?;
-        let ws = websocket_stream(write, read);
+    async fn connect(&self) -> Result<Connection, ConnectorError> {
+        let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
+        let url = builder.build_url()?;
 
-        let this = self;
-        let s = stream! {
-        futures_util::pin_mut!(ws);
-
-        while let Some(msg) = ws.next().await {
-            match msg {
-                Ok(txt) => {
-                    match this.process_message(&txt) {
-                        Ok(events) => {
-                            for ev in events {
-                                yield ev;
-                            }
-                        }
-                        Err(err) => {
-                            self.handle_error(&err);
-                            continue;
-                        }
-                    }
-                }
-                Err(err) => {
-                    self.handle_error(&err);
-                    continue;
-                }
-            }
-        }
-    };
-
-        Ok(s)
+        connect_websocket(&url).await.map_err(|e| {
+            eprintln!("Failed to connect websocket: {:?}", e);
+            ConnectorError::from(e)
+        })
     }
 
+    fn on_message(&self, msg: &str) -> Result<Vec<Event>, ConnectorError> {
+        let wrapper = get_serde_value(msg)?;
+
+        let data = wrapper.get("data").ok_or_else(|| {
+            MessageParsingError(format!("Missing 'data' field in wrapper: {}", msg))
+        })?;
+
+        let event_type = data
+            .get("e")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| MessageParsingError(format!("Missing 'e' field in data: {}", data)))?;
+
+        match event_type {
+            "depthUpdate" => self.handle_depth_message(data),
+            "aggTrade" => self.handle_agg_trade_message(data),
+            other => Err(MessageParsingError(format!(
+                "Unknown event type: {}",
+                other
+            )))?,
+        }
+    }
 }

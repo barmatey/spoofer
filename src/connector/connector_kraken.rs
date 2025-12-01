@@ -1,36 +1,28 @@
+use async_stream::stream;
 use crate::connector::errors::{ConnectorError, ParsingError};
 use crate::connector::{Connector, Event};
 use crate::level2::LevelUpdated;
-use crate::shared::{Bus, Price, Quantity, Side};
+use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
-use crate::connector::config::{ConnectorConfig, TickerConfig};
-use crate::connector::errors::ParsingError::ConvertingError;
+use crate::connector::config::ConnectorConfig;
+use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
-    parse_json, parse_timestamp_from_date_string, parse_value,
+    get_serde_object, parse_json, parse_timestamp_from_date_string, parse_value,
 };
 use crate::connector::services::ticker_map::TickerMap;
-use crate::connector::services::websocket::{
-    connect_websocket, send_ws_message, websocket_event_loop, Connection,
-};
+use crate::connector::services::websocket::{connect_websocket, send_ws_message, websocket_event_loop, websocket_stream, Connection};
+use futures::Stream;
+use futures_util::StreamExt;
 use serde::Deserialize;
 use serde_json::Value;
-use std::sync::Arc;
-use futures::Stream;
 use tokio_tungstenite::tungstenite::Message;
-// =============================
-// Config
-// =============================
 
 pub struct KrakenConfig {
     pub ticker: String,
     pub price_multiply: f64,
     pub quantity_multiply: f64,
 }
-
-// =============================
-// Structure of book/trade data (partial, simplified)
-// =============================
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -64,15 +56,13 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
 }
 
 pub struct KrakenConnector {
-    bus: Arc<Bus>,
     configs: TickerMap,
     exchange_name: String,
 }
 
 impl KrakenConnector {
-    pub fn new(bus: Arc<Bus>, config: ConnectorConfig) -> Self {
+    pub fn new(config: ConnectorConfig) -> Self {
         Self {
-            bus,
             configs: build_ticker_map(config),
             exchange_name: "kraken".to_string(),
         }
@@ -121,49 +111,38 @@ impl KrakenConnector {
         Ok((write, read))
     }
 
-    fn process_message(&mut self, raw: &str) -> Result<(), ConnectorError> {
-        // Try to parse raw JSON
-        let v: Value = match serde_json::from_str(raw) {
-            Ok(x) => x,
-            Err(e) => {
-                eprintln!("[kraken] JSON parse error: {:?}, raw: {}", e, raw);
-                return Err(ConnectorError::ParsingError(
-                    ParsingError::MessageParsingError(format!("JSON parse error: {:?}", e)),
-                ));
+    fn process_message(&self, raw: &str) -> Result<Vec<Event>, ConnectorError> {
+        let obj = get_serde_object(raw)?;
+
+        let channel = obj
+            .get("channel")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| MessageParsingError("channel is none".to_string()))?;
+
+        let result = match channel {
+            "book" => self.handle_book(&obj)?,
+            "trade" => self.handle_trade(&obj)?,
+            "status" => {
+                println!("{}", channel.to_string());
+                vec![]
+            }
+            "heartbeat" => vec![],
+            _ => {
+                println!("Unexpected channel {}", channel);
+                vec![]
             }
         };
-
-        // We expect object messages for data (book/trade)
-        let obj = match v.as_object() {
-            Some(o) => o,
-            None => {
-                println!("Object is None");
-                return Ok(());
-            }
-        };
-
-        let ch = match obj.get("channel").and_then(|c| c.as_str()) {
-            Some(c) => c,
-            None => {
-                println!("Channel is None");
-                return Ok(());
-            }
-        };
-
-        match ch {
-            "book" => self.handle_book(obj)?,
-            "trade" => self.handle_trade(obj)?,
-            "status" => println!("{}", ch.to_string()),
-            "heartbeat" => { /* ignore */ }
-            _ => println!("Unexpected channel {}", ch),
-        }
-
-        Ok(())
+        Ok(result)
     }
 
-    fn handle_book(&mut self, obj: &serde_json::Map<String, Value>) -> Result<(), ConnectorError> {
+    fn handle_book(
+        &self,
+        obj: &serde_json::Map<String, Value>,
+    ) -> Result<Vec<Event>, ConnectorError> {
         println!("handle_book KRAKEN");
-        // Extract data array
+
+        let mut result = Vec::new();
+
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())
@@ -178,35 +157,42 @@ impl KrakenConnector {
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 let price = bid.price * config.price_multiply;
                 let qty = bid.qty * config.quantity_multiply;
-                self.bus.levels.publish(LevelUpdated {
+                let event = LevelUpdated {
                     ticker: config.ticker.clone(),
                     exchange: self.exchange_name.clone(),
                     side: Side::Buy,
                     price: price as Price,
                     quantity: qty as Quantity,
                     timestamp: ts,
-                });
+                };
+                result.push(Event::LevelUpdate(event));
             }
 
             for ask in entry.asks {
                 let price = ask.price * config.price_multiply;
                 let qty = ask.qty * config.quantity_multiply;
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
-                self.bus.levels.publish(LevelUpdated {
+                let event = LevelUpdated {
                     exchange: self.exchange_name.clone(),
                     ticker: config.ticker.clone(),
                     side: Side::Sell,
                     price: price as Price,
                     quantity: qty as Quantity,
                     timestamp: ts,
-                });
+                };
+                result.push(Event::LevelUpdate(event));
             }
         }
 
-        Ok(())
+        Ok(result)
     }
 
-    fn handle_trade(&mut self, obj: &serde_json::Map<String, Value>) -> Result<(), ConnectorError> {
+    fn handle_trade(
+        &self,
+        obj: &serde_json::Map<String, Value>,
+    ) -> Result<Vec<Event>, ConnectorError> {
+        let mut result = vec![];
+
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())
@@ -235,22 +221,45 @@ impl KrakenConnector {
                 market_maker: side,
             };
 
-            self.bus.trades.publish(event);
+            result.push(Event::Trade(event));
         }
 
-        Ok(())
+        Ok(result)
     }
-
-    pub async fn run(&mut self) -> Result<(), ConnectorError> {
-        let (write, read) = self.connect().await?;
-        println!("[kraken] entering ws event loop");
-        websocket_event_loop(write, read, |msg| self.process_message(msg)).await?;
-        Ok(())
-    }
+    
 }
 
-// impl Connector for KrakenConnector {
-//     async fn stream(&self) -> Result<impl Stream<Item=Result<Event, ConnectorError>>, ConnectorError> {
-//         todo!()
-//     }
-// }
+impl Connector for KrakenConnector{
+    async fn stream(&self) -> Result<impl Stream<Item=Event>, ConnectorError> {
+        let (write, read) = self.connect().await?;
+        let ws = websocket_stream(write, read);
+
+        let this = self;
+        let s = stream! {
+            futures_util::pin_mut!(ws);
+
+            while let Some(msg) = ws.next().await {
+                match msg {
+                    Ok(txt) => {
+                        match this.process_message(&txt) {
+                            Ok(events) => {
+                                for ev in events {
+                                    yield ev;
+                                }
+                            }
+                            Err(err) => {
+                                self.on_processing_error(&err);
+                                continue;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        self.on_processing_error(&err);
+                        continue;
+                    }
+                }
+            }
+        };
+        Ok(s)
+    }
+}
