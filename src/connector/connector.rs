@@ -10,5 +10,9 @@ pub enum Event {
 }
 
 pub trait Connector {
-    async fn stream(&self) -> Result<impl Stream<Item = Result<Event, ConnectorError>>, ConnectorError>;
+    async fn stream(&self) -> Result<impl Stream<Item = Event>, ConnectorError>;
+
+    fn handle_error(&self, err: &ConnectorError) {
+        println!("{:?}", err);
+    }
 }

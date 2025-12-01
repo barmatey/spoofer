@@ -26,10 +26,7 @@ async fn main() {
 
 
     // 2) читаем его
-    while let Some(ev_res) = stream.next().await {
-        match ev_res {
-            Ok(ev) => println!("{:?}", ev),
-            Err(err) => eprintln!("ERROR = {:?}", err),
-        }
+    while let Some(event) = stream.next().await {
+        println!("{:?}", event);
     }
 }

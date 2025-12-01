@@ -1,3 +1,4 @@
+use async_stream::stream;
 use crate::connector::errors::ConnectorError::BuilderError;
 use crate::connector::errors::{ConnectorError, ParsingError};
 
@@ -258,36 +259,38 @@ impl<'a> BinanceConnector {
 }
 
 impl Connector for BinanceConnector {
-    async fn stream(
-        &self,
-    ) -> Result<impl Stream<Item = Result<Event, ConnectorError>>, ConnectorError> {
+    async fn stream(&self) -> Result<impl Stream<Item = Event>, ConnectorError> {
         let (write, read) = self.connect().await?;
         let ws = websocket_stream(write, read);
 
-        let parsed = ws.flat_map(move |msg_res| {
-            let this = self;
+        let this = self;
+        let s = stream! {
+        futures_util::pin_mut!(ws);
 
-            async_stream::stream! {
-                match msg_res {
-                    Err(e) => {
-                        yield Err(e);
-                    }
-                    Ok(txt) => {
-                        match this.process_message(&txt) {
-                            Err(err) => {
-                                yield Err(err);
+        while let Some(msg) = ws.next().await {
+            match msg {
+                Ok(txt) => {
+                    match this.process_message(&txt) {
+                        Ok(events) => {
+                            for ev in events {
+                                yield ev; // возвращаем Event прямо
                             }
-                            Ok(events) => {
-                                for ev in events {
-                                    yield Ok(ev);
-                                }
-                            }
+                        }
+                        Err(err) => {
+                            self.handle_error(&err);
+                            continue;
                         }
                     }
                 }
+                Err(err) => {
+                    self.handle_error(&err);
+                    continue;
+                }
             }
-        });
+        }
+    };
 
-        Ok(parsed)
+        Ok(s)
     }
+
 }
