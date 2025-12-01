@@ -4,7 +4,7 @@ use crate::shared::TimestampMS;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
-pub fn get_serde_value(raw: &str) -> Result<Value, Error> {
+pub fn parse_serde_value(raw: &str) -> Result<Value, Error> {
     let result = serde_json::from_str::<Value>(raw);
     match result { 
         Ok(r) => Ok(r),
@@ -12,16 +12,15 @@ pub fn get_serde_value(raw: &str) -> Result<Value, Error> {
     }
 }
 
-pub fn get_serde_object(raw: &str) -> Result<Map<String, Value>, Error> {
-    let v = get_serde_value(raw)?;
-
+pub fn parse_serde_object(raw: &str) -> Result<Map<String, Value>, Error> {
+    let v = parse_serde_value(raw)?;
     match v.as_object() {
         Some(obj) => Ok(obj.to_owned()),
         None => Err(MessageParsingError("JSON is not an object".to_string()))?,
     }
 }
 
-pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Error> {
+pub fn json_from_string<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Error> {
     let result = serde_json::from_str::<T>(s);
     match result {
         Ok(r) => Ok(r),
@@ -29,9 +28,7 @@ pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Error> {
     }
 }
 
-pub fn parse_value<T: serde::de::DeserializeOwned>(
-    value: serde_json::Value,
-) -> Result<T, Error> {
+pub fn json_from_serde_value<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Error> {
     let result = serde_json::from_value::<T>(value);
     match result {
         Ok(r) => Ok(r),

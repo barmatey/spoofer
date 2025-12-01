@@ -9,7 +9,7 @@ use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ExchangeError::KrakenError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
-    get_serde_object, parse_json, parse_timestamp_from_date_string, parse_value,
+    parse_serde_object, json_from_string, parse_timestamp_from_date_string, json_from_serde_value,
 };
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, send_ws_message, Connection};
@@ -95,7 +95,7 @@ impl KrakenConnector {
             .ok_or_else(|| MessageParsingError("book: missing data array".into()))?;
 
         for item in data {
-            let entry: KrakenBookEntry = parse_json(&item.to_string())?;
+            let entry: KrakenBookEntry = json_from_string(&item.to_string())?;
 
             let config = self.configs.get_by_symbol(&entry.symbol)?;
 
@@ -144,7 +144,7 @@ impl KrakenConnector {
             .ok_or_else(|| MessageParsingError("trade: missing data array".into()))?;
 
         for item in data {
-            let tr: KrakenTrade = parse_value(item.clone())?;
+            let tr: KrakenTrade = json_from_serde_value(item.clone())?;
             let config = self.configs.get_by_symbol(&tr.symbol)?;
 
             let price_f = &tr.price * config.price_multiply;
@@ -221,7 +221,7 @@ impl ConnectorInternal for KrakenConnector {
     }
 
     fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), Error> {
-        let obj = get_serde_object(msg)?;
+        let obj = parse_serde_object(msg)?;
 
         if let Some(error) = obj.get("error") {
             Err(KrakenError(error.to_string()))?;

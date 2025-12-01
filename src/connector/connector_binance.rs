@@ -7,7 +7,7 @@ use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::ExchangeError::BinanceError;
 use crate::connector::errors::ParsingError::MessageParsingError;
-use crate::connector::services::parser::{get_serde_value, parse_json, parse_number};
+use crate::connector::services::parser::{parse_serde_value, json_from_string, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
 use crate::connector::Event;
@@ -172,7 +172,7 @@ impl BinanceConnector {
 
     fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
         let txt = data.to_string();
-        let parsed = parse_json::<DepthUpdateMessage>(&txt)?;
+        let parsed = json_from_string::<DepthUpdateMessage>(&txt)?;
 
         let ticker_config = self.configs.get_by_symbol(&parsed.symbol.to_lowercase())?;
 
@@ -211,7 +211,7 @@ impl BinanceConnector {
 
     fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
         let txt = data.to_string();
-        let trade = parse_json::<AggTradeMessage>(&txt)?;
+        let trade = json_from_string::<AggTradeMessage>(&txt)?;
 
         let ticker_config = self.configs.get_by_symbol(&trade.symbol.to_lowercase())?;
 
@@ -242,7 +242,7 @@ impl ConnectorInternal for BinanceConnector {
     }
 
     fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), Error> {
-        let wrapper = get_serde_value(msg)?;
+        let wrapper = parse_serde_value(msg)?;
 
         let data = wrapper.get("data").ok_or_else(|| {
             MessageParsingError(format!("Missing 'data' field in wrapper: {}", msg))
