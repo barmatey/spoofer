@@ -273,7 +273,7 @@ impl Connector for BinanceConnector {
                     match this.process_message(&txt) {
                         Ok(events) => {
                             for ev in events {
-                                yield ev; // возвращаем Event прямо
+                                yield ev;
                             }
                         }
                         Err(err) => {
