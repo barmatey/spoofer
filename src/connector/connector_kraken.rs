@@ -1,7 +1,7 @@
 use crate::connector::errors::Error;
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
-use crate::shared::{Price, Quantity, Side};
+use crate::shared::{Logger, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
 use crate::connector::config::ConnectorConfig;
@@ -71,6 +71,7 @@ fn validate_depth(value: u8) -> Result<(), Error> {
 pub struct KrakenConnector {
     configs: TickerMap,
     exchange_name: String,
+    logger: Logger,
 }
 
 impl KrakenConnector {
@@ -78,6 +79,7 @@ impl KrakenConnector {
         Self {
             configs: build_ticker_map(config),
             exchange_name: "kraken".to_string(),
+            logger: Logger::new("kraken"),
         }
     }
 
@@ -173,7 +175,7 @@ impl KrakenConnector {
 impl ConnectorInternal for KrakenConnector {
     async fn connect(&self) -> Result<Connection, Error> {
         let url = "wss://ws.kraken.com/v2";
-        let (mut write, read) = connect_websocket(url).await?;
+        let (mut write, read) = connect_websocket(url, &self.logger).await?;
 
         for ticker_config in self.configs.get_all_configs() {
             let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
@@ -187,7 +189,10 @@ impl ConnectorInternal for KrakenConnector {
                     }
                 });
                 send_ws_message(&mut write, Message::Text(sub_trade.to_string())).await?;
-                println!("[kraken] Sent trade subscribe for {}", ticker_config.ticker);
+                self.logger.info(&format!(
+                    "Sent trade subscribe for {}",
+                    ticker_config.ticker
+                ));
             }
 
             if ticker_config.subscribe_depth {
@@ -202,10 +207,10 @@ impl ConnectorInternal for KrakenConnector {
                     }
                 });
                 send_ws_message(&mut write, Message::Text(sub_book.to_string())).await?;
-                println!(
-                    "[kraken] Sent book subscribe for {} with {} depth",
+                self.logger.info(&format!(
+                    "Sent book subscribe for {} with {} depth",
                     symbol, ticker_config.depth_value
-                );
+                ));
             }
         }
 
@@ -227,9 +232,7 @@ impl ConnectorInternal for KrakenConnector {
         match channel {
             "book" => self.handle_depth(&obj, buffer)?,
             "trade" => self.handle_trade(&obj, buffer)?,
-            "status" => {
-                println!("{}", channel.to_string());
-            }
+            "status" => {}
             "heartbeat" => {}
             _ => Err(KrakenError(format!("Unexpected channel {}", channel)))?,
         };
@@ -237,6 +240,6 @@ impl ConnectorInternal for KrakenConnector {
     }
 
     fn on_error(&self, err: &Error) {
-        println!("{:?}", err);
+        self.logger.error(&format!("{:?}", err));
     }
 }

@@ -12,7 +12,7 @@ use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
-use crate::shared::{Price, Quantity, Side};
+use crate::shared::{Logger, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -137,18 +137,23 @@ impl<'a> BinanceUrlBuilder<'a> {
 }
 
 pub struct BinanceConnector {
+    exchange: String,
     configs: TickerMap,
+    logger: Logger,
 }
 
 impl BinanceConnector {
     pub fn new(config: ConnectorConfig) -> Self {
         Self {
             configs: build_ticker_map(config.ticker_configs),
+            logger: Logger::new("binance"),
+            exchange: "binance".to_string(),
         }
     }
 
     async fn check_symbols(&self) -> Result<(), Error> {
-        println!("Check symbols");
+        self.logger.info("Check symbols");
+
         let valid_symbols = fetch_binance_symbols().await?;
         let symbols = self.configs.get_all_symbols();
 
@@ -175,7 +180,7 @@ impl BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             let ev = LevelUpdated {
-                exchange: "binance".to_string(),
+                exchange: self.exchange.clone(),
                 ticker: ticker_config.ticker.clone(),
                 side: Side::Buy,
                 price: price as Price,
@@ -191,7 +196,7 @@ impl BinanceConnector {
 
             let ev = LevelUpdated {
                 ticker: ticker_config.ticker.clone(),
-                exchange: "binance".to_string(),
+                exchange: self.exchange.clone(),
                 side: Side::Sell,
                 price: price as Price,
                 quantity: quantity as Quantity,
@@ -214,7 +219,7 @@ impl BinanceConnector {
 
         let event = TradeEvent {
             ticker: ticker_config.ticker.clone(),
-            exchange: "binance".to_string(),
+            exchange: self.exchange.clone(),
             price: price as Price,
             quantity: qty as Quantity,
             timestamp: trade.event_time,
@@ -231,7 +236,7 @@ impl ConnectorInternal for BinanceConnector {
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
         self.check_symbols().await?;
-        connect_websocket(&url).await
+        connect_websocket(&url, &self.logger).await
     }
 
     fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), Error> {
@@ -257,6 +262,7 @@ impl ConnectorInternal for BinanceConnector {
     }
 
     fn on_error(&self, err: &Error) {
-        println!("{:?}", err);
+        let err = format!("{:?}", err);
+        self.logger.error(&err);
     }
 }
