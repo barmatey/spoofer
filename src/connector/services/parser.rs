@@ -1,10 +1,10 @@
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError, SerdeError};
-use crate::connector::errors::{Error, ParsingError};
+use crate::connector::errors::{ParsingError};
 use crate::shared::TimestampMS;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
-pub fn parse_serde_value(raw: &str) -> Result<Value, Error> {
+pub fn parse_serde_value(raw: &str) -> Result<Value, ParsingError> {
     let result = serde_json::from_str::<Value>(raw);
     match result { 
         Ok(r) => Ok(r),
@@ -12,7 +12,7 @@ pub fn parse_serde_value(raw: &str) -> Result<Value, Error> {
     }
 }
 
-pub fn parse_serde_object(raw: &str) -> Result<Map<String, Value>, Error> {
+pub fn parse_serde_object(raw: &str) -> Result<Map<String, Value>, ParsingError> {
     let v = parse_serde_value(raw)?;
     match v.as_object() {
         Some(obj) => Ok(obj.to_owned()),
@@ -20,7 +20,7 @@ pub fn parse_serde_object(raw: &str) -> Result<Map<String, Value>, Error> {
     }
 }
 
-pub fn json_from_string<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Error> {
+pub fn model_from_string<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ParsingError> {
     let result = serde_json::from_str::<T>(s);
     match result {
         Ok(r) => Ok(r),
@@ -28,7 +28,7 @@ pub fn json_from_string<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Er
     }
 }
 
-pub fn json_from_serde_value<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Error> {
+pub fn model_from_serde_value<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, ParsingError> {
     let result = serde_json::from_value::<T>(value);
     match result {
         Ok(r) => Ok(r),
