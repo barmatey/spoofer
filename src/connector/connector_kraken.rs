@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
 use url::quirks::search;
+use crate::connector::errors::Error::InternalError;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -42,8 +43,15 @@ struct KrakenTrade {
     symbol: String,
 }
 
+fn convert_ticker_into_kraken_symbol(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_ascii_alphabetic())
+        .flat_map(|c| c.to_uppercase())
+        .collect()
+}
+
 fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
-    let mut result = TickerMap::new(|x| x.to_uppercase());
+    let mut result = TickerMap::new(convert_ticker_into_kraken_symbol);
     for x in config.ticker_configs {
         result.register(x);
     }
@@ -57,7 +65,7 @@ async fn fetch_kraken_pairs() -> Result<HashSet<String>, Error> {
 
     let pairs = value["result"]
         .as_object()
-        .ok_or_else(|| MessageParsingError("invalid pairs response".into()))?
+        .ok_or_else(|| InternalError("invalid pairs response".into()))?
         .keys()
         .cloned()
         .collect::<HashSet<_>>();

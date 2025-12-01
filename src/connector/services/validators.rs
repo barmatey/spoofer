@@ -10,9 +10,13 @@ pub fn check_symbol_exist(
     if valid_symbols.contains(symbol) {
         Ok(())
     } else {
+        let mut available = valid_symbols.iter().cloned().collect::<Vec<_>>();
+        available.sort();
+        let available = available.join(", ");
+
         let err = OtherError(format!(
-            "Symbol {} is not in {} available symbols",
-            symbol, exchange
+            "Symbol {} is not in {} available symbols. Available values: {}",
+            symbol, exchange, available
         ));
         Err(err)
     }
