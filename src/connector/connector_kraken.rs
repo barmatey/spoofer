@@ -7,6 +7,7 @@ use std::collections::HashSet;
 
 use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
+use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
     get_serde_object, get_serde_value, parse_json, parse_timestamp_from_date_string, parse_value,
@@ -18,7 +19,6 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
 use url::quirks::search;
-use crate::connector::errors::Error::InternalError;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -44,10 +44,8 @@ struct KrakenTrade {
 }
 
 fn convert_ticker_into_kraken_symbol(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_ascii_alphabetic())
-        .flat_map(|c| c.to_uppercase())
-        .collect()
+    let result = raw.to_uppercase();
+    result
 }
 
 fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
@@ -91,8 +89,6 @@ impl KrakenConnector {
         data: &serde_json::Map<String, Value>,
         result: &mut StreamBuffer,
     ) -> Result<(), Error> {
-        println!("handle_book KRAKEN");
-
         let data = data
             .get("data")
             .and_then(|d| d.as_array())
@@ -186,7 +182,7 @@ impl ConnectorInternal for KrakenConnector {
 
         for ticker_config in self.configs.get_all_configs() {
             let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
-            check_symbol_exist(&self.exchange_name, &symbol, &valid_symbols)?;
+            // check_symbol_exist(&self.exchange_name, &symbol, &valid_symbols)?;
 
             if ticker_config.subscribe_trades {
                 let sub_trade = serde_json::json!({

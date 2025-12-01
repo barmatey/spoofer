@@ -7,7 +7,7 @@ use crate::connector::errors::ParsingError::MessageParsingError;
 use crate::connector::services::parser::{get_serde_value, parse_json, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
-use crate::connector::{Connector, Event};
+use crate::connector::{Event};
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;

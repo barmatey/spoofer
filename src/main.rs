@@ -14,8 +14,8 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let mut builder = ConnectorBuilder::new()
-        .ticker("BTC/USDT", 100, 100_000_000)
-        .subscribe_depth(8)
+        .ticker("btc/usdt", 100, 100_000_000)
+        .subscribe_depth(10)
         .subscribe_trades();
 
     let kraken = builder.build_kraken_connector().unwrap();
