@@ -53,6 +53,21 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
     result
 }
 
+fn validate_depth(value: u8) -> Result<(), Error> {
+    let available = [10, 25];
+    if !available.contains(&value) {
+        Err(KrakenError(format!(
+            "Depth value must be one of the following numbers: {}",
+            available
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )))?;
+    }
+    Ok(())
+}
+
 pub struct KrakenConnector {
     configs: TickerMap,
     exchange_name: String,
@@ -162,7 +177,6 @@ impl ConnectorInternal for KrakenConnector {
 
         for ticker_config in self.configs.get_all_configs() {
             let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
-            // check_symbol_exist(&self.exchange_name, &symbol, &valid_symbols)?;
 
             if ticker_config.subscribe_trades {
                 let sub_trade = serde_json::json!({
@@ -177,6 +191,7 @@ impl ConnectorInternal for KrakenConnector {
             }
 
             if ticker_config.subscribe_depth {
+                validate_depth(ticker_config.depth_value)?;
                 let sub_book = serde_json::json!({
                     "method": "subscribe",
                     "params": {
@@ -204,9 +219,10 @@ impl ConnectorInternal for KrakenConnector {
             Err(KrakenError(error.to_string()))?;
         }
 
-        let channel = obj.get("channel").and_then(|c| c.as_str()).ok_or_else(|| {
-            KrakenError("Kraken channel is null".to_string())
-        })?;
+        let channel = obj
+            .get("channel")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| KrakenError("Kraken channel is null".to_string()))?;
 
         match channel {
             "book" => self.handle_depth(&obj, buffer)?,
