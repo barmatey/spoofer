@@ -1,8 +1,6 @@
-use std::ops::Deref;
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, KrakenConnector};
-use serde_json::Value::Bool;
 
 pub struct ConnectorBuilder {
     subscribe_trades: bool,
