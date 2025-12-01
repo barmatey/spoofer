@@ -1,15 +1,25 @@
-use tracing_subscriber;
+use tracing::Level;
 
-pub fn init_logging() {
-    // compact() — красивый компактный формат
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .compact()
-        .init();
+/// Цвета ANSI
+pub const RED: &str = "\x1b[31m";
+pub const GREEN: &str = "\x1b[32m";
+pub const YELLOW: &str = "\x1b[33m";
+pub const BLUE: &str = "\x1b[34m";
+pub const RESET: &str = "\x1b[0m";
+
+/// Функция для получения цвета по уровню
+pub fn color_for_level(level: Level) -> &'static str {
+    match level {
+        Level::ERROR => RED,
+        Level::WARN => YELLOW,
+        Level::INFO => GREEN,
+        Level::DEBUG => BLUE,
+        Level::TRACE => BLUE,
+    }
 }
 
 pub struct Logger {
-    name: &'static str,
+    pub name: &'static str,
 }
 
 impl Logger {
@@ -17,11 +27,24 @@ impl Logger {
         Self { name }
     }
 
-    pub fn info(&self, msg: &str) {
-        tracing::info!(exchange = self.name, "{msg}");
+    fn log(&self, level: Level, msg: &str) {
+        let colored_level = format!("{}{}{}", color_for_level(level), level, RESET);
+        println!("[{}]: {} {}", self.name, colored_level, msg);
     }
 
-    pub fn error(&self, err: &str) {
-        tracing::error!(exchange = self.name, "{err}");
+    pub fn info(&self, msg: &str) {
+        self.log(Level::INFO, msg);
+    }
+
+    pub fn warn(&self, msg: &str) {
+        self.log(Level::WARN, msg);
+    }
+
+    pub fn error(&self, msg: &str) {
+        self.log(Level::ERROR, msg);
+    }
+
+    pub fn debug(&self, msg: &str) {
+        self.log(Level::DEBUG, msg);
     }
 }

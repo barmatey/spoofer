@@ -18,7 +18,7 @@ pub type Connection = (
 );
 
 pub async fn connect_websocket(url: &str, logger: &Logger) -> Result<Connection, Error> {
-    logger.info(&format!("🔗 Connecting to WS: {}", url));
+    logger.info(&format!("Connecting to WS: {}", url));
 
     let parsed_url = Url::parse(url).map_err(|e| Error::from(ParsingError::UrlParseError(e)))?;
 
@@ -26,7 +26,7 @@ pub async fn connect_websocket(url: &str, logger: &Logger) -> Result<Connection,
         .await
         .map_err(|_| WebsocketError::ConnectionFailed)?;
 
-    logger.info(&format!("🟢 Successfully connected to {}", url));
+    logger.info(&format!("Successfully connected to {}", url));
     Ok(ws_stream.split())
 }
 

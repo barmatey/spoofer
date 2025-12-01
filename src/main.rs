@@ -1,5 +1,4 @@
 use crate::connector::{Connector, ConnectorBuilder, Event};
-use crate::shared::logger::init_logging;
 use futures_util::StreamExt;
 use std::pin::pin;
 
@@ -12,8 +11,6 @@ mod trade;
 
 #[tokio::main]
 async fn main() {
-    init_logging();
-
     let mut builder = ConnectorBuilder::new()
         .ticker("btc/usdt", 100, 100_000_000)
         .subscribe_depth(10)
