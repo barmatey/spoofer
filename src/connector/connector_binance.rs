@@ -4,16 +4,16 @@ use crate::connector::errors::{ConnectorError, ParsingError};
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::services::parser::{parse_json, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
-use crate::connector::services::websocket::{connect_websocket, websocket_event_loop, Connection};
+use crate::connector::services::websocket::{
+    connect_websocket, websocket_stream, Connection,
+};
 use crate::connector::{Connector, Event};
 use crate::level2::LevelUpdated;
-use crate::shared::{Bus, Price, Quantity, Side};
+use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
-use async_stream::try_stream;
 use futures_util::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -127,19 +127,20 @@ impl<'a> BinanceUrlBuilder<'a> {
 }
 
 pub struct BinanceConnector {
-    bus: Arc<Bus>,
     configs: TickerMap,
 }
 
 impl<'a> BinanceConnector {
-    pub fn new(bus: Arc<Bus>, config: ConnectorConfig) -> Self {
+    pub fn new(config: ConnectorConfig) -> Self {
         Self {
-            bus,
             configs: build_ticker_map(config.ticker_configs),
         }
     }
 
-    fn get_event_from_agg_trade(&self, trade: AggTradeMessage) -> Result<TradeEvent, ConnectorError> {
+    fn get_event_from_agg_trade(
+        &self,
+        trade: AggTradeMessage,
+    ) -> Result<TradeEvent, ConnectorError> {
         let ticker_config = self.configs.get_by_symbol(&trade.symbol.to_lowercase())?;
 
         let price = parse_number(&trade.price)? * ticker_config.price_multiply;
@@ -156,7 +157,10 @@ impl<'a> BinanceConnector {
         Ok(event)
     }
 
-    fn get_events_from_depth(&self, depth: DepthUpdateMessage) -> Result<Vec<LevelUpdated>, ConnectorError> {
+    fn get_events_from_depth(
+        &self,
+        depth: DepthUpdateMessage,
+    ) -> Result<Vec<LevelUpdated>, ConnectorError> {
         let mut result =
             Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
 
@@ -203,7 +207,7 @@ impl<'a> BinanceConnector {
         })
     }
 
-    fn process_message(&self, txt: &str) -> Result<(), ConnectorError> {
+    fn process_message(&self, txt: &str) -> Result<Vec<Event>, ConnectorError> {
         let wrapper: Value = serde_json::from_str(txt).map_err(|e| {
             ConnectorError::ParsingError(ParsingError::MessageParsingError(format!(
                 "Failed to parse wrapper: {:?}, error: {:?}",
@@ -228,76 +232,62 @@ impl<'a> BinanceConnector {
         match event_type {
             "depthUpdate" => self.handle_depth_message(data),
             "aggTrade" => self.handle_agg_trade_message(data),
-            other => Err(ConnectorError::ParsingError(ParsingError::MessageParsingError(
-                format!("Unknown event type: {}", other),
-            ))),
+            other => Err(ConnectorError::ParsingError(
+                ParsingError::MessageParsingError(format!("Unknown event type: {}", other)),
+            )),
         }
     }
 
-    fn handle_depth_message(&self, data: &Value) -> Result<(), ConnectorError> {
+    fn handle_depth_message(&self, data: &Value) -> Result<Vec<Event>, ConnectorError> {
         let txt = data.to_string();
         let parsed = parse_json(&txt)?;
-        for e in self.get_events_from_depth(parsed)? {
-            self.bus.levels.publish(e);
-        }
-        Ok(())
+        let events = self
+            .get_events_from_depth(parsed)?
+            .into_iter()
+            .map(|x| Event::LevelUpdate(x))
+            .collect();
+        Ok(events)
     }
 
-    fn handle_agg_trade_message(&self, data: &Value) -> Result<(), ConnectorError> {
+    fn handle_agg_trade_message(&self, data: &Value) -> Result<Vec<Event>, ConnectorError> {
         let txt = data.to_string();
         let msg = parse_json::<AggTradeMessage>(&txt)?;
         let event = self.get_event_from_agg_trade(msg)?;
-        self.bus.trades.publish(event);
-        Ok(())
-    }
-
-    pub async fn run(&self) -> Result<(), ConnectorError> {
-        let (write, read) = self.connect().await?;
-        websocket_event_loop(write, read, |msg| self.process_message(msg)).await?;
-        Ok(())
-    }
-
-    pub async fn stream(&self) -> Result<impl Stream<Item = Result<Event, ConnectorError>>, ConnectorError> {
-        let (mut write, mut read) = self.connect().await?;
-
-        Ok(try_stream! {
-            while let Some(msg) = read.next().await {
-                let txt = msg?;
-                let wrapper: Value = serde_json::from_str(&txt)?;
-
-                let data = wrapper.get("data").ok_or_else(|| {
-                    ParsingError::MessageParsingError("missing data".into())
-                })?;
-
-                let t = data.get("e").and_then(|v| v.as_str()).unwrap_or("");
-
-                match t {
-                    "aggTrade" => {
-                        let txt = data.to_string();
-                        let msg: AggTradeMessage = parse_json(&txt)?;
-                        let event = self.get_event_from_agg_trade(msg)?;
-                        yield Event::Trade(event);
-                    }
-                    "depthUpdate" => {
-                        let txt = data.to_string();
-                        let msg: DepthUpdateMessage = parse_json(&txt)?;
-                        for lvl in self.get_events_from_depth(msg)? {
-                            yield Event::LevelUpdate(lvl);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        })
+        Ok(vec![Event::Trade(event)])
     }
 }
 
 impl Connector for BinanceConnector {
-    async fn listen(&mut self) {
-        let _ = self.run().await;
-    }
+    async fn stream(
+        &self,
+    ) -> Result<impl Stream<Item = Result<Event, ConnectorError>>, ConnectorError> {
+        let (write, read) = self.connect().await?;
+        let ws = websocket_stream(write, read);
 
-    async fn stream(&self) -> Result<impl Stream<Item = Result<Event, ConnectorError>>, ConnectorError> {
-        todo!()
+        let parsed = ws.flat_map(move |msg_res| {
+            let this = self;
+
+            async_stream::stream! {
+                match msg_res {
+                    Err(e) => {
+                        yield Err(e);
+                    }
+                    Ok(txt) => {
+                        match this.process_message(&txt) {
+                            Err(err) => {
+                                yield Err(err);
+                            }
+                            Ok(events) => {
+                                for ev in events {
+                                    yield Ok(ev);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(parsed)
     }
 }

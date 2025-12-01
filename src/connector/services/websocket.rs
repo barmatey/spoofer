@@ -9,6 +9,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
 use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError, };
+use crate::connector::errors::ConnectorError::OtherError;
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,

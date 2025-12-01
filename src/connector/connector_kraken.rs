@@ -1,5 +1,5 @@
 use crate::connector::errors::{ConnectorError, ParsingError};
-use crate::connector::Connector;
+use crate::connector::{Connector, Event};
 use crate::level2::LevelUpdated;
 use crate::shared::{Bus, Price, Quantity, Side};
 use crate::trade::TradeEvent;
@@ -16,6 +16,7 @@ use crate::connector::services::websocket::{
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
+use futures::Stream;
 use tokio_tungstenite::tungstenite::Message;
 // =============================
 // Config
@@ -248,10 +249,8 @@ impl KrakenConnector {
     }
 }
 
-impl Connector for KrakenConnector {
-    async fn listen(&mut self) {
-        if let Err(e) = self.run().await {
-            eprintln!("[kraken] error in run: {:?}", e);
-        }
-    }
-}
+// impl Connector for KrakenConnector {
+//     async fn stream(&self) -> Result<impl Stream<Item=Result<Event, ConnectorError>>, ConnectorError> {
+//         todo!()
+//     }
+// }
