@@ -60,6 +60,10 @@ impl TickerMap {
         &self.data
     }
 
+    pub fn get_all_symbols(&self) -> Vec<String> {
+        self.symbols.keys().cloned().collect()
+    }
+
     pub fn get_symbol_from_ticker(&self, ticker: &str) -> String{
         (self.converter)(ticker)
     }

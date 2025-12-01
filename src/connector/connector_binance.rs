@@ -1,18 +1,21 @@
 use crate::connector::errors::Error;
+use reqwest::get;
+use std::collections::HashSet;
 
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
+use crate::connector::errors::Error::InternalError;
+use crate::connector::errors::ExchangeError::BinanceError;
 use crate::connector::errors::ParsingError::MessageParsingError;
 use crate::connector::services::parser::{get_serde_value, parse_json, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
-use crate::connector::{Event};
+use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::connector::errors::ExchangeError::BinanceError;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -63,6 +66,18 @@ fn build_ticker_map(configs: Vec<TickerConfig>) -> TickerMap {
     result
 }
 
+async fn fetch_binance_symbols() -> Result<HashSet<String>, Error> {
+    let url = "https://api.binance.com/api/v3/exchangeInfo";
+    let resp: Value = get(url).await?.json().await?;
+    let result = resp["symbols"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["symbol"].as_str().unwrap().to_lowercase())
+        .collect();
+    Ok(result)
+}
+
 pub struct BinanceUrlBuilder<'a> {
     configs: &'a [TickerConfig],
 }
@@ -80,7 +95,7 @@ impl<'a> BinanceUrlBuilder<'a> {
         ))
     }
 
-    pub fn build_streams(&self) -> Result<Vec<String>, Error> {
+    fn build_streams(&self) -> Result<Vec<String>, Error> {
         let mut out = Vec::new();
 
         for cfg in self.configs {
@@ -129,11 +144,28 @@ pub struct BinanceConnector {
     configs: TickerMap,
 }
 
-impl<'a> BinanceConnector {
+impl BinanceConnector {
     pub fn new(config: ConnectorConfig) -> Self {
         Self {
             configs: build_ticker_map(config.ticker_configs),
         }
+    }
+
+    async fn check_symbols(&self) -> Result<(), Error> {
+        println!("Check symbols");
+        let valid_symbols = fetch_binance_symbols().await?;
+        let symbols = self.configs.get_all_symbols();
+
+        if symbols.is_empty() {
+            Err(InternalError("Symbols are empty".to_string()))?;
+        }
+
+        for s in symbols {
+            if !valid_symbols.contains(&s) {
+                Err(BinanceError(format!("Symbol {} does not exist", s)))?;
+            }
+        }
+        Ok(())
     }
 
     fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
@@ -202,6 +234,7 @@ impl ConnectorInternal for BinanceConnector {
     async fn connect(&self) -> Result<Connection, Error> {
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
+        self.check_symbols().await?;
         connect_websocket(&url).await
     }
 

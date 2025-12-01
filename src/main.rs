@@ -18,10 +18,10 @@ async fn main() {
         .subscribe_depth(10)
         .subscribe_trades();
 
-    let kraken = builder.build_kraken_connector().unwrap();
+    let connector = builder.build_binance_connector().unwrap();
 
     // 1) создаём стрим
-    let stream = kraken.stream().await.unwrap();
+    let stream = connector.stream().await.unwrap();
     let mut stream = pin!(stream);
 
 
