@@ -6,6 +6,7 @@ use crate::trade::TradeEvent;
 
 use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
+use crate::connector::errors::ExchangeError::KrakenError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
     get_serde_object, parse_json, parse_timestamp_from_date_string, parse_value,
@@ -15,7 +16,6 @@ use crate::connector::services::websocket::{connect_websocket, send_ws_message, 
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
-use crate::connector::errors::ExchangeError::KrakenError;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -204,10 +204,9 @@ impl ConnectorInternal for KrakenConnector {
             Err(KrakenError(error.to_string()))?;
         }
 
-        let channel = obj
-            .get("channel")
-            .and_then(|c| c.as_str())
-            .ok_or_else(|| KrakenError("Kraken channel is none".to_string()))?;
+        let channel = obj.get("channel").and_then(|c| c.as_str()).ok_or_else(|| {
+            KrakenError("Kraken channel is null".to_string())
+        })?;
 
         match channel {
             "book" => self.handle_depth(&obj, buffer)?,

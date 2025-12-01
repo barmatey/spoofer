@@ -1,5 +1,5 @@
 use std::pin::pin;
-use crate::connector::{Connector, ConnectorBuilder};
+use crate::connector::{Connector, ConnectorBuilder, Event};
 use futures_util::StreamExt;
 
 
@@ -14,7 +14,7 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let mut builder = ConnectorBuilder::new()
-        .ticker("btttc/usdt", 100, 100_000_000)
+        .ticker("btc/usdt", 100, 100_000_000)
         .subscribe_depth(10)
         .subscribe_trades();
 
@@ -27,6 +27,9 @@ async fn main() {
 
     // 2) читаем его
     while let Some(event) = stream.next().await {
-        println!("{:?}", event);
+        match event {
+            Event::Trade(x) => println!("{:?}", x),
+            Event::LevelUpdate(_) => {}
+        }
     }
 }
