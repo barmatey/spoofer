@@ -1,7 +1,8 @@
-use crate::connector::errors::ConnectorError::{BuilderError};
-use crate::connector::errors::{ConnectorError};
+use crate::connector::errors::ConnectorError;
+use crate::connector::errors::ConnectorError::BuilderError;
 
 use crate::connector::config::{ConnectorConfig, TickerConfig};
+use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ParsingError::MessageParsingError;
 use crate::connector::services::parser::{get_serde_value, parse_json, parse_number};
 use crate::connector::services::ticker_map::TickerMap;
@@ -135,10 +136,49 @@ impl<'a> BinanceConnector {
         }
     }
 
-    fn get_event_from_agg_trade(
-        &self,
-        trade: AggTradeMessage,
-    ) -> Result<TradeEvent, ConnectorError> {
+    fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
+        let txt = data.to_string();
+        let parsed = parse_json::<DepthUpdateMessage>(&txt)?;
+
+        let ticker_config = self.configs.get_by_symbol(&parsed.symbol.to_lowercase())?;
+
+        for (price, quantity) in parsed.bids_to_update.iter() {
+            let price = parse_number(price)? * ticker_config.price_multiply;
+            let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
+
+            let ev = LevelUpdated {
+                exchange: "binance".to_string(),
+                ticker: ticker_config.ticker.clone(),
+                side: Side::Buy,
+                price: price as Price,
+                quantity: quantity as Quantity,
+                timestamp: parsed.event_time,
+            };
+            result.push_back(Event::LevelUpdate(ev));
+        }
+
+        for (price, quantity) in parsed.asks_to_update.iter() {
+            let price = parse_number(price)? * ticker_config.price_multiply;
+            let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
+
+            let ev = LevelUpdated {
+                ticker: ticker_config.ticker.clone(),
+                exchange: "binance".to_string(),
+                side: Side::Sell,
+                price: price as Price,
+                quantity: quantity as Quantity,
+                timestamp: parsed.event_time,
+            };
+            result.push_back(Event::LevelUpdate(ev));
+        }
+
+        Ok(())
+    }
+
+    fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
+        let txt = data.to_string();
+        let trade = parse_json::<AggTradeMessage>(&txt)?;
+
         let ticker_config = self.configs.get_by_symbol(&trade.symbol.to_lowercase())?;
 
         let price = parse_number(&trade.price)? * ticker_config.price_multiply;
@@ -152,69 +192,13 @@ impl<'a> BinanceConnector {
             timestamp: trade.event_time,
             market_maker: [Side::Sell, Side::Buy][trade.is_buyer_maker as usize],
         };
-        Ok(event)
-    }
+        result.push_back(Event::Trade(event));
 
-    fn get_events_from_depth(
-        &self,
-        depth: DepthUpdateMessage,
-    ) -> Result<Vec<LevelUpdated>, ConnectorError> {
-        let mut result =
-            Vec::with_capacity(depth.bids_to_update.len() + depth.asks_to_update.len());
-
-        let ticker_config = self.configs.get_by_symbol(&depth.symbol.to_lowercase())?;
-
-        for (price, quantity) in depth.bids_to_update.iter() {
-            let price = parse_number(price)? * ticker_config.price_multiply;
-            let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
-
-            result.push(LevelUpdated {
-                exchange: "binance".to_string(),
-                ticker: ticker_config.ticker.clone(),
-                side: Side::Buy,
-                price: price as Price,
-                quantity: quantity as Quantity,
-                timestamp: depth.event_time,
-            });
-        }
-
-        for (price, quantity) in depth.asks_to_update.iter() {
-            let price = parse_number(price)? * ticker_config.price_multiply;
-            let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
-
-            result.push(LevelUpdated {
-                ticker: ticker_config.ticker.clone(),
-                exchange: "binance".to_string(),
-                side: Side::Sell,
-                price: price as Price,
-                quantity: quantity as Quantity,
-                timestamp: depth.event_time,
-            });
-        }
-
-        Ok(result)
-    }
-
-    fn handle_depth_message(&self, data: &Value) -> Result<Vec<Event>, ConnectorError> {
-        let txt = data.to_string();
-        let parsed = parse_json(&txt)?;
-        let events = self
-            .get_events_from_depth(parsed)?
-            .into_iter()
-            .map(|x| Event::LevelUpdate(x))
-            .collect();
-        Ok(events)
-    }
-
-    fn handle_agg_trade_message(&self, data: &Value) -> Result<Vec<Event>, ConnectorError> {
-        let txt = data.to_string();
-        let msg = parse_json::<AggTradeMessage>(&txt)?;
-        let event = self.get_event_from_agg_trade(msg)?;
-        Ok(vec![Event::Trade(event)])
+        Ok(())
     }
 }
 
-impl Connector for BinanceConnector {
+impl ConnectorInternal for BinanceConnector {
     async fn connect(&self) -> Result<Connection, ConnectorError> {
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
@@ -225,7 +209,7 @@ impl Connector for BinanceConnector {
         })
     }
 
-    fn on_message(&self, msg: &str) -> Result<Vec<Event>, ConnectorError> {
+    fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
         let wrapper = get_serde_value(msg)?;
 
         let data = wrapper.get("data").ok_or_else(|| {
@@ -238,12 +222,16 @@ impl Connector for BinanceConnector {
             .ok_or_else(|| MessageParsingError(format!("Missing 'e' field in data: {}", data)))?;
 
         match event_type {
-            "depthUpdate" => self.handle_depth_message(data),
-            "aggTrade" => self.handle_agg_trade_message(data),
+            "depthUpdate" => self.handle_depth(data, result),
+            "aggTrade" => self.handle_trade(data, result),
             other => Err(MessageParsingError(format!(
                 "Unknown event type: {}",
                 other
             )))?,
         }
+    }
+
+    fn on_error(&self, err: &ConnectorError) {
+        println!("{:?}", err);
     }
 }
