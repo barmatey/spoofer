@@ -27,7 +27,6 @@ pub(crate) trait ConnectorInternal {
     fn on_error(&self, err: &Error);
 }
 
-
 impl<T: ConnectorInternal> Connector for T {
     async fn stream(&self) -> Result<impl Stream<Item = Event>, Error> {
         let (write, read) = self.connect().await?;

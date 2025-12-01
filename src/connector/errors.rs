@@ -44,10 +44,12 @@ pub enum Error {
 
     #[error("HTTP request error: {0}")]
     RequestError(#[from] reqwest::Error),
-    
+
     #[error("Exchange Error: {0}")]
     ExchangeError(#[from] ExchangeError),
 
     #[error("InternalError")]
     InternalError(String),
 }
+
+pub type ErrorHandler = Box<dyn Fn(&Error)>;

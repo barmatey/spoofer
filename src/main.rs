@@ -12,9 +12,11 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let mut builder = ConnectorBuilder::new()
-        .ticker("btc/usdt", 100, 100_000_000)
+        .add_ticker("btc/usdt", 100, 100_000_000)
+        .add_error_handler(|err| println!("{:?}", err))
         .subscribe_depth(10)
-        .subscribe_trades();
+        .subscribe_trades()
+        .log_level("INFO");
 
     let connector = builder.build_binance_connector().unwrap();
 

@@ -1,12 +1,15 @@
+use std::ops::Deref;
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
-use crate::connector::errors::Error;
+use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, KrakenConnector};
+use serde_json::Value::Bool;
 
 pub struct ConnectorBuilder {
     subscribe_trades: bool,
     subscribe_depth: bool,
     depth_value: u8,
     tickers: Vec<(String, f64, f64)>,
+    error_handlers: Vec<ErrorHandler>,
 }
 
 impl ConnectorBuilder {
@@ -16,12 +19,26 @@ impl ConnectorBuilder {
             subscribe_depth: false,
             depth_value: 0,
             tickers: vec![],
+            error_handlers: vec![],
         }
     }
 
-    pub fn ticker(mut self, ticker: &str, price_mult: u32, quantity_mult: u32) -> Self {
+    pub fn add_ticker(mut self, ticker: &str, price_mult: u32, quantity_mult: u32) -> Self {
         self.tickers
             .push((ticker.to_string(), price_mult as f64, quantity_mult as f64));
+        self
+    }
+
+    pub fn add_error_handler<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(&Error) + 'static,
+    {
+        let boxed = Box::new(handler);
+        self.error_handlers.push(boxed);
+        self
+    }
+
+    pub fn log_level(mut self, value: &str) -> Self {
         self
     }
 
@@ -50,7 +67,9 @@ impl ConnectorBuilder {
             TickerConfigValidator::new(&tc).validate()?;
             ticker_configs.push(tc);
         }
-        let config = ConnectorConfig { ticker_configs };
+        let mut error_handlers = vec![];
+        todo!();
+        let config = ConnectorConfig { ticker_configs, error_handlers };
         Ok(config)
     }
 

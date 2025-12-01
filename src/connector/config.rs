@@ -1,4 +1,4 @@
-use crate::connector::errors::Error;
+use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::errors::Error::BuilderError;
 
 #[derive(Debug)]
@@ -73,4 +73,5 @@ impl<'a> TickerConfigValidator<'a> {
 
 pub struct ConnectorConfig {
     pub ticker_configs: Vec<TickerConfig>,
+    pub error_handlers: Vec<ErrorHandler>,
 }
