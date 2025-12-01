@@ -45,8 +45,10 @@ impl<'a> TickerConfigValidator<'a> {
     fn validate_symbol(&mut self) {
         if !self.is_valid_symbol(&self.ticker.ticker) {
             let err = BuilderError(
-                format!("Ticker should be one of the following formats: AAPL for stocks; BTC/USD for cryptocurrencies. Your value is '{}'",
-                        self.ticker.ticker
+                format!(
+                    "Ticker should be one of the following formats: AAPL for stocks; BTC/USD for cryptocurrencies.\
+                     Upper case or lower case are available. Your value is '{}'",
+                    self.ticker.ticker
                 ));
             self.errors.push(err);
         }
