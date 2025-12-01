@@ -23,7 +23,7 @@ pub enum WebsocketError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ConnectorError {
+pub enum Error {
     #[error("Parsing failed: {0}")]
     ParsingError(#[from] ParsingError),
 

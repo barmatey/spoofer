@@ -1,5 +1,5 @@
-use crate::connector::errors::ConnectorError;
-use crate::connector::errors::ConnectorError::BuilderError;
+use crate::connector::errors::Error;
+use crate::connector::errors::Error::BuilderError;
 
 #[derive(Debug)]
 pub struct TickerConfig {
@@ -13,7 +13,7 @@ pub struct TickerConfig {
 
 pub struct TickerConfigValidator<'a> {
     ticker: &'a TickerConfig,
-    errors: Vec<ConnectorError>,
+    errors: Vec<Error>,
 }
 impl<'a> TickerConfigValidator<'a> {
     pub fn new(ticker: &'a TickerConfig) -> Self {
@@ -59,7 +59,7 @@ impl<'a> TickerConfigValidator<'a> {
         }
     }
 
-    pub fn validate(&mut self) -> Result<(), ConnectorError> {
+    pub fn validate(&mut self) -> Result<(), Error> {
         self.validate_depth();
         self.validate_symbol();
         if let Some(e) = self.errors.pop() {

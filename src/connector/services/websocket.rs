@@ -8,23 +8,23 @@ use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
-use crate::connector::errors::{ConnectorError, ParsingError, WebsocketError, };
-use crate::connector::errors::ConnectorError::OtherError;
+use crate::connector::errors::{Error, ParsingError, WebsocketError, };
+use crate::connector::errors::Error::OtherError;
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 );
 
-pub async fn connect_websocket(url: &str) -> Result<Connection, ConnectorError> {
+pub async fn connect_websocket(url: &str) -> Result<Connection, Error> {
     println!("🔗 Connecting to WS: {}", url);
 
     let parsed_url =
-        Url::parse(url).map_err(|e| ConnectorError::from(ParsingError::UrlParseError(e)))?;
+        Url::parse(url).map_err(|e| Error::from(ParsingError::UrlParseError(e)))?;
 
     let (ws_stream, _) = connect_async(parsed_url)
         .await
-        .map_err(|_| ConnectorError::WebsocketError(WebsocketError::ConnectionFailed))?;
+        .map_err(|_| Error::WebsocketError(WebsocketError::ConnectionFailed))?;
 
     println!("🟢 Successfully connected to {}", url);
 
@@ -34,19 +34,19 @@ pub async fn connect_websocket(url: &str) -> Result<Connection, ConnectorError> 
 pub type ConnSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 pub type ConnStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
-pub async fn send_ws_message(sink: &mut ConnSink, msg: Message) -> Result<(), ConnectorError> {
+pub async fn send_ws_message(sink: &mut ConnSink, msg: Message) -> Result<(), Error> {
     sink.send(msg)
         .await
-        .map_err(|_| ConnectorError::WebsocketError(WebsocketError::SendMessageFailed))
+        .map_err(|_| Error::WebsocketError(WebsocketError::SendMessageFailed))
 }
 
 pub async fn websocket_event_loop<F>(
     mut write: ConnSink,
     mut read: ConnStream,
     mut process_message: F,
-) -> Result<(), ConnectorError>
+) -> Result<(), Error>
 where
-    F: FnMut(&str) -> Result<(), ConnectorError>,
+    F: FnMut(&str) -> Result<(), Error>,
 {
     loop {
         tokio::select! {
@@ -93,7 +93,7 @@ where
 pub fn websocket_stream(
     mut write: ConnSink,
     mut read: ConnStream,
-) -> impl Stream<Item = Result<String, ConnectorError>> {
+) -> impl Stream<Item = Result<String, Error>> {
 
     try_stream! {
         loop {

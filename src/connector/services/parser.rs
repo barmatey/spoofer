@@ -1,10 +1,10 @@
 use crate::connector::errors::ParsingError::MessageParsingError;
-use crate::connector::errors::{ConnectorError, ParsingError};
+use crate::connector::errors::{Error, ParsingError};
 use crate::shared::TimestampMS;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
-pub fn get_serde_value(raw: &str) -> Result<Value, ConnectorError> {
+pub fn get_serde_value(raw: &str) -> Result<Value, Error> {
     let result = serde_json::from_str::<Value>(raw).map_err(|e| {
         eprintln!("[kraken] JSON parse error: {:?}, raw: {}", e, raw);
         MessageParsingError(format!("JSON parse error: {:?}", e))
@@ -12,7 +12,7 @@ pub fn get_serde_value(raw: &str) -> Result<Value, ConnectorError> {
     Ok(result)
 }
 
-pub fn get_serde_object(raw: &str) -> Result<Map<String, Value>, ConnectorError> {
+pub fn get_serde_object(raw: &str) -> Result<Map<String, Value>, Error> {
     let v = get_serde_value(raw)?;
 
     match v.as_object() {
@@ -21,7 +21,7 @@ pub fn get_serde_object(raw: &str) -> Result<Map<String, Value>, ConnectorError>
     }
 }
 
-pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, ConnectorError> {
+pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Error> {
     let result = serde_json::from_str::<T>(s);
     match result {
         Ok(r) => Ok(r),
@@ -31,7 +31,7 @@ pub fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, Connecto
 
 pub fn parse_value<T: serde::de::DeserializeOwned>(
     value: serde_json::Value,
-) -> Result<T, ConnectorError> {
+) -> Result<T, Error> {
     let result = serde_json::from_value::<T>(value);
     match result {
         Ok(r) => Ok(r),

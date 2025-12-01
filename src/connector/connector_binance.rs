@@ -1,5 +1,5 @@
-use crate::connector::errors::ConnectorError;
-use crate::connector::errors::ConnectorError::BuilderError;
+use crate::connector::errors::Error;
+use crate::connector::errors::Error::BuilderError;
 
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
@@ -72,7 +72,7 @@ impl<'a> BinanceUrlBuilder<'a> {
         Self { configs }
     }
 
-    pub fn build_url(&self) -> Result<String, ConnectorError> {
+    pub fn build_url(&self) -> Result<String, Error> {
         let streams = self.build_streams()?;
         Ok(format!(
             "wss://stream.binance.com:9443/stream?streams={}",
@@ -80,7 +80,7 @@ impl<'a> BinanceUrlBuilder<'a> {
         ))
     }
 
-    pub fn build_streams(&self) -> Result<Vec<String>, ConnectorError> {
+    pub fn build_streams(&self) -> Result<Vec<String>, Error> {
         let mut out = Vec::new();
 
         for cfg in self.configs {
@@ -136,7 +136,7 @@ impl<'a> BinanceConnector {
         }
     }
 
-    fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
+    fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
         let txt = data.to_string();
         let parsed = parse_json::<DepthUpdateMessage>(&txt)?;
 
@@ -175,7 +175,7 @@ impl<'a> BinanceConnector {
         Ok(())
     }
 
-    fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
+    fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
         let txt = data.to_string();
         let trade = parse_json::<AggTradeMessage>(&txt)?;
 
@@ -199,13 +199,13 @@ impl<'a> BinanceConnector {
 }
 
 impl ConnectorInternal for BinanceConnector {
-    async fn connect(&self) -> Result<Connection, ConnectorError> {
+    async fn connect(&self) -> Result<Connection, Error> {
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
         connect_websocket(&url).await
     }
 
-    fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
+    fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), Error> {
         let wrapper = get_serde_value(msg)?;
 
         let data = wrapper.get("data").ok_or_else(|| {
@@ -227,7 +227,7 @@ impl ConnectorInternal for BinanceConnector {
         }
     }
 
-    fn on_error(&self, err: &ConnectorError) {
+    fn on_error(&self, err: &Error) {
         println!("{:?}", err);
     }
 }

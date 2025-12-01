@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::connector::errors::ConnectorError;
+use crate::connector::errors::Error;
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
@@ -46,7 +46,7 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
     result
 }
 
-async fn fetch_kraken_pairs() -> Result<HashSet<String>, ConnectorError> {
+async fn fetch_kraken_pairs() -> Result<HashSet<String>, Error> {
     let url = "https://api.kraken.com/0/public/AssetPairs";
     let resp = reqwest::get(url).await?;
     let value: Value = resp.json().await?;
@@ -79,7 +79,7 @@ impl KrakenConnector {
         &self,
         data: &serde_json::Map<String, Value>,
         result: &mut StreamBuffer,
-    ) -> Result<(), ConnectorError> {
+    ) -> Result<(), Error> {
         println!("handle_book KRAKEN");
 
         let data = data
@@ -130,7 +130,7 @@ impl KrakenConnector {
         &self,
         obj: &serde_json::Map<String, Value>,
         result: &mut StreamBuffer,
-    ) -> Result<(), ConnectorError> {
+    ) -> Result<(), Error> {
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())
@@ -167,7 +167,7 @@ impl KrakenConnector {
 }
 
 impl ConnectorInternal for KrakenConnector {
-    async fn connect(&self) -> Result<Connection, ConnectorError> {
+    async fn connect(&self) -> Result<Connection, Error> {
         let url = "wss://ws.kraken.com/v2";
         println!("[kraken] Connecting to {}", url);
         let (mut write, read) = connect_websocket(url).await?;
@@ -209,7 +209,7 @@ impl ConnectorInternal for KrakenConnector {
         Ok((write, read))
     }
 
-    fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), ConnectorError> {
+    fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), Error> {
         let obj = get_serde_object(msg)?;
 
         let channel = obj
@@ -229,7 +229,7 @@ impl ConnectorInternal for KrakenConnector {
         Ok(())
     }
 
-    fn on_error(&self, err: &ConnectorError) {
+    fn on_error(&self, err: &Error) {
         println!("{:?}", err);
     }
 }

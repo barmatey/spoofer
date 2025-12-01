@@ -1,6 +1,6 @@
 use crate::connector::config::TickerConfig;
-use crate::connector::errors::ConnectorError;
-use crate::connector::errors::ConnectorError::OtherError;
+use crate::connector::errors::Error;
+use crate::connector::errors::Error::OtherError;
 use std::collections::HashMap;
 
 type Converter = fn(&str) -> String;
@@ -32,7 +32,7 @@ impl TickerMap {
         self.symbols.insert(symbol, self.data.len() - 1);
     }
 
-    pub fn get_by_ticker(&self, ticker: &str) -> Result<&TickerConfig, ConnectorError> {
+    pub fn get_by_ticker(&self, ticker: &str) -> Result<&TickerConfig, Error> {
         let err = || {
             OtherError(format!(
                 "Cannot extract linked specific ticker for {}",
@@ -44,7 +44,7 @@ impl TickerMap {
         self.data.get(*idx).ok_or_else(err)
     }
 
-    pub fn get_by_symbol(&self, symbol: &str) -> Result<&TickerConfig, ConnectorError> {
+    pub fn get_by_symbol(&self, symbol: &str) -> Result<&TickerConfig, Error> {
         let err = || {
             OtherError(format!(
                 "Cannot extract linked specific symbol for {}",

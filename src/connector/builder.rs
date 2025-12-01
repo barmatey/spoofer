@@ -1,5 +1,5 @@
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
-use crate::connector::errors::ConnectorError;
+use crate::connector::errors::Error;
 use crate::connector::{BinanceConnector, KrakenConnector};
 
 pub struct ConnectorBuilder {
@@ -36,7 +36,7 @@ impl ConnectorBuilder {
         self
     }
 
-    fn build_config(&mut self) -> Result<ConnectorConfig, ConnectorError> {
+    fn build_config(&mut self) -> Result<ConnectorConfig, Error> {
         let mut ticker_configs = Vec::new();
         for (ticker, price_multiply, quantity_multiply) in self.tickers.iter() {
             let tc = TickerConfig {
@@ -54,12 +54,12 @@ impl ConnectorBuilder {
         Ok(config)
     }
 
-    pub fn build_binance_connector(&mut self) -> Result<BinanceConnector, ConnectorError> {
+    pub fn build_binance_connector(&mut self) -> Result<BinanceConnector, Error> {
         let config = self.build_config()?;
         Ok(BinanceConnector::new(config))
     }
 
-    pub fn build_kraken_connector(&mut self) -> Result<KrakenConnector, ConnectorError> {
+    pub fn build_kraken_connector(&mut self) -> Result<KrakenConnector, Error> {
         let config = self.build_config()?;
         Ok(KrakenConnector::new(config))
     }
