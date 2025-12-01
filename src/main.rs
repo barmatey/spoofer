@@ -14,7 +14,7 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let mut builder = ConnectorBuilder::new()
-        .ticker("btc/usdt", 100, 100_000_000)
+        .ticker("btttc/usdt", 100, 100_000_000)
         .subscribe_depth(10)
         .subscribe_trades();
 

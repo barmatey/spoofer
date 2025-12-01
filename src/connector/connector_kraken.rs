@@ -3,22 +3,19 @@ use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
-use std::collections::HashSet;
 
 use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
-use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
-    get_serde_object, get_serde_value, parse_json, parse_timestamp_from_date_string, parse_value,
+    get_serde_object, parse_json, parse_timestamp_from_date_string, parse_value,
 };
 use crate::connector::services::ticker_map::TickerMap;
-use crate::connector::services::validators::check_symbol_exist;
 use crate::connector::services::websocket::{connect_websocket, send_ws_message, Connection};
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
-use url::quirks::search;
+use crate::connector::errors::ExchangeError::KrakenError;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -54,21 +51,6 @@ fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
         result.register(x);
     }
     result
-}
-
-async fn fetch_kraken_pairs() -> Result<HashSet<String>, Error> {
-    let url = "https://api.kraken.com/0/public/AssetPairs";
-    let resp = reqwest::get(url).await?;
-    let value: Value = resp.json().await?;
-
-    let pairs = value["result"]
-        .as_object()
-        .ok_or_else(|| InternalError("invalid pairs response".into()))?
-        .keys()
-        .cloned()
-        .collect::<HashSet<_>>();
-
-    Ok(pairs)
 }
 
 pub struct KrakenConnector {
@@ -178,8 +160,6 @@ impl ConnectorInternal for KrakenConnector {
         let url = "wss://ws.kraken.com/v2";
         let (mut write, read) = connect_websocket(url).await?;
 
-        let valid_symbols = fetch_kraken_pairs().await?;
-
         for ticker_config in self.configs.get_all_configs() {
             let symbol = self.configs.get_symbol_from_ticker(&ticker_config.ticker);
             // check_symbol_exist(&self.exchange_name, &symbol, &valid_symbols)?;
@@ -220,10 +200,14 @@ impl ConnectorInternal for KrakenConnector {
     fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), Error> {
         let obj = get_serde_object(msg)?;
 
+        if let Some(error) = obj.get("error") {
+            Err(KrakenError(error.to_string()))?;
+        }
+
         let channel = obj
             .get("channel")
             .and_then(|c| c.as_str())
-            .ok_or_else(|| MessageParsingError("channel is none".to_string()))?;
+            .ok_or_else(|| KrakenError("Kraken channel is none".to_string()))?;
 
         match channel {
             "book" => self.handle_depth(&obj, buffer)?,

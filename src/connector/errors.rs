@@ -23,6 +23,15 @@ pub enum WebsocketError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum ExchangeError {
+    #[error("KrakenError")]
+    KrakenError(String),
+
+    #[error("BinanceError")]
+    BinanceError(String),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Parsing failed: {0}")]
     ParsingError(#[from] ParsingError),
@@ -35,10 +44,10 @@ pub enum Error {
 
     #[error("HTTP request error: {0}")]
     RequestError(#[from] reqwest::Error),
+    
+    #[error("Exchange Error: {0}")]
+    ExchangeError(#[from] ExchangeError),
 
     #[error("InternalError")]
     InternalError(String),
-
-    #[error("OtherError")]
-    OtherError(String),
 }

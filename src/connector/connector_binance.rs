@@ -1,5 +1,4 @@
 use crate::connector::errors::Error;
-use crate::connector::errors::Error::BuilderError;
 
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
@@ -13,6 +12,7 @@ use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use crate::connector::errors::ExchangeError::BinanceError;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -89,10 +89,10 @@ impl<'a> BinanceUrlBuilder<'a> {
         }
 
         if out.is_empty() {
-            return Err(BuilderError(
+            Err(BinanceError(
                 "No streams configured. Enable subscribe_trades/subscribe_depth and provide tickers"
-                    .to_string(),
-            ));
+                    .to_string()
+            ))?;
         }
 
         Ok(out)

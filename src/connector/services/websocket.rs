@@ -24,7 +24,7 @@ pub async fn connect_websocket(url: &str) -> Result<Connection, Error> {
 
     let (ws_stream, _) = connect_async(parsed_url)
         .await
-        .map_err(|_| Error::WebsocketError(WebsocketError::ConnectionFailed))?;
+        .map_err(|_| WebsocketError::ConnectionFailed)?;
 
     println!("🟢 Successfully connected to {}", url);
 
@@ -37,7 +37,8 @@ pub type ConnStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 pub async fn send_ws_message(sink: &mut ConnSink, msg: Message) -> Result<(), Error> {
     sink.send(msg)
         .await
-        .map_err(|_| Error::WebsocketError(WebsocketError::SendMessageFailed))
+        .map_err(|_| WebsocketError::SendMessageFailed)?;
+    Ok(())
 }
 
 pub async fn websocket_event_loop<F>(
