@@ -29,7 +29,7 @@ async fn main() {
     while let Some(event) = stream.next().await {
         match event {
             Event::Trade(x) => println!("{:?}", x),
-            Event::LevelUpdate(_) => {}
+            Event::LevelUpdate(y) => {println!("{:?}", y)}
         }
     }
 }

@@ -127,12 +127,8 @@ impl<'a> BinanceUrlBuilder<'a> {
         streams
     }
 
-    fn build_depth_stream(&self, cfg: &TickerConfig, symbol: &str) -> String {
-        if cfg.depth_value > 0 {
-            format!("{symbol}@depth{}@100ms", cfg.depth_value)
-        } else {
-            format!("{symbol}@depth@100ms")
-        }
+    fn build_depth_stream(&self, _cfg: &TickerConfig, symbol: &str) -> String {
+        format!("{symbol}@depth@100ms")
     }
 
     fn build_trades_stream(&self, symbol: &str) -> String {
