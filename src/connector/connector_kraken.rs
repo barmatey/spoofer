@@ -1,7 +1,7 @@
 use crate::connector::errors::Error;
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
-use crate::shared::{Logger, Price, Quantity, Side};
+use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
 use crate::connector::config::ConnectorConfig;
@@ -16,6 +16,7 @@ use crate::connector::services::websocket::{connect_websocket, send_ws_message, 
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
+use crate::shared::logger::Logger;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {

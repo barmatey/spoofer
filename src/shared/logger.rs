@@ -1,3 +1,13 @@
+use tracing_subscriber;
+
+pub fn init_logging() {
+    // compact() — красивый компактный формат
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .compact()
+        .init();
+}
+
 pub struct Logger {
     name: &'static str,
 }

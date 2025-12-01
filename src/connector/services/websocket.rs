@@ -1,6 +1,5 @@
 use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::{Error, ParsingError, WebsocketError};
-use crate::shared::Logger;
 use async_stream::try_stream;
 use futures::Stream;
 use futures_util::stream::{SplitSink, SplitStream};
@@ -11,6 +10,7 @@ use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use url::Url;
+use crate::shared::logger::Logger;
 
 pub type Connection = (
     SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
