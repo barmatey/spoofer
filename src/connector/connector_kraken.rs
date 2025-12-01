@@ -175,6 +175,8 @@ impl KrakenConnector {
 
 impl ConnectorInternal for KrakenConnector {
     async fn connect(&self) -> Result<Connection, Error> {
+        self.logger.info("Connecting...");
+
         let url = "wss://ws.kraken.com/v2";
         let (mut write, read) = connect_websocket(url, &self.logger).await?;
 

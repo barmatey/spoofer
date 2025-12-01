@@ -234,6 +234,7 @@ impl BinanceConnector {
 
 impl ConnectorInternal for BinanceConnector {
     async fn connect(&self) -> Result<Connection, Error> {
+        self.logger.info("Connecting...");
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
         self.check_symbols().await?;
