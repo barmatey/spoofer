@@ -202,11 +202,7 @@ impl ConnectorInternal for BinanceConnector {
     async fn connect(&self) -> Result<Connection, ConnectorError> {
         let builder = BinanceUrlBuilder::new(self.configs.get_all_configs());
         let url = builder.build_url()?;
-
-        connect_websocket(&url).await.map_err(|e| {
-            eprintln!("Failed to connect websocket: {:?}", e);
-            ConnectorError::from(e)
-        })
+        connect_websocket(&url).await
     }
 
     fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), ConnectorError> {
