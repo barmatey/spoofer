@@ -1,72 +1,8 @@
+use crate::level2::book_side::BookSide;
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
-use crate::shared::errors::{check_exchange, check_side, check_ticker, check_timestamp};
-use crate::shared::{Price, Side, TimestampMS};
-use either::Either;
-use std::collections::{BTreeSet, HashMap};
-
-pub struct BookSide {
-    ticks: HashMap<Price, Vec<LevelUpdated>>,
-    sorted_prices: BTreeSet<Price>,
-    side: Side,
-    empty_ticks: Vec<LevelUpdated>,
-    last_ts: TimestampMS,
-}
-
-impl BookSide {
-    pub fn new(side: Side) -> Self {
-        Self {
-            ticks: HashMap::new(),
-            sorted_prices: BTreeSet::new(),
-            side,
-            empty_ticks: vec![],
-            last_ts: 0,
-        }
-    }
-
-    pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
-        check_side(&self.side, &event.side)?;
-        check_timestamp(self.last_ts, event.timestamp)?;
-
-        if !self.ticks.contains_key(&event.price) {
-            self.sorted_prices.insert(event.price);
-        }
-
-        self.last_ts = event.timestamp;
-
-        self.ticks
-            .entry(event.price)
-            .or_insert_with(Vec::new)
-            .push(event);
-
-        Ok(())
-    }
-
-    pub fn level_ticks(&self, price: Price) -> &Vec<LevelUpdated> {
-        &self.ticks.get(&price).unwrap_or(&self.empty_ticks)
-    }
-
-    pub fn best_prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
-        let iter = match self.side {
-            Side::Buy => Either::Left(self.sorted_prices.iter().rev()),
-            Side::Sell => Either::Right(self.sorted_prices.iter()),
-        };
-        iter.skip_while(|price| {
-            self.ticks
-                .get(price)
-                .unwrap_or(&self.empty_ticks)
-                .last()
-                .map(|ev| ev.quantity)
-                .unwrap_or(0)
-                != 0
-        })
-        .take(depth)
-    }
-
-    pub fn side(&self) -> &Side {
-        &self.side
-    }
-}
+use crate::shared::errors::{check_exchange, check_ticker};
+use crate::shared::Side;
 
 pub struct OrderBook {
     bids: BookSide,
@@ -76,10 +12,10 @@ pub struct OrderBook {
 }
 
 impl OrderBook {
-    pub fn new(exchange: &str, ticker: &str) -> Self {
+    pub fn new(exchange: &str, ticker: &str, max_depth: usize, max_ticks: usize) -> Self {
         Self {
-            bids: BookSide::new(Side::Buy),
-            asks: BookSide::new(Side::Sell),
+            bids: BookSide::new(Side::Buy, max_depth, max_ticks),
+            asks: BookSide::new(Side::Sell, max_depth, max_ticks),
             exchange: exchange.to_string(),
             ticker: ticker.to_string(),
         }
@@ -121,6 +57,11 @@ impl OrderBook {
     }
 
     pub fn update_or_miss(&mut self, event: LevelUpdated) {
-        let _ = self.update_if_instrument_matches(event);
+        if self.ticker == event.ticker && self.exchange == event.exchange {
+            match event.side {
+                Side::Buy => self.bids.update_or_miss(event),
+                Side::Sell => self.asks.update_or_miss(event),
+            }
+        }
     }
 }
