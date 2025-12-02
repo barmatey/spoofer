@@ -1,6 +1,6 @@
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
-use crate::level2::Level2Error::IncompatibleExchange;
+use crate::shared::event::EventError::{IncompatibleExchange, OutdatedEvent};
 use crate::shared::{Price, Side};
 use either::Either;
 use std::collections::{BTreeSet, HashMap};
@@ -39,9 +39,9 @@ impl BookSide {
             .and_then(|v| v.last())
             .map_or(false, |last| event.timestamp < last.timestamp)
         {
-            return Err(Level2Error::OutdatedEvent(
+            Err(OutdatedEvent(
                 "You are trying to add an event that earliest last one".to_string(),
-            ));
+            ))?;
         }
         Ok(())
     }
