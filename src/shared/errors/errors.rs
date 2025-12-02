@@ -8,6 +8,7 @@ pub enum BaseError {
 
     #[error("IncompatibleExchange")]
     IncompatibleExchange(String),
+
+    #[error("IncompatibleSide")]
+    IncompatibleSide(String),
 }
-
-

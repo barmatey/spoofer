@@ -1,6 +1,6 @@
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
-use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
+use crate::shared::errors::{check_exchange, check_side, check_ticker, check_timestamp};
 use crate::shared::{Price, Side, TimestampMS};
 use either::Either;
 use std::collections::{BTreeSet, HashMap};
@@ -24,18 +24,10 @@ impl BookSide {
         }
     }
 
-    fn check_event_side(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
-        if event.side != self.side {
-            return Err(Level2Error::IncompatibleSide(format!(
-                "book_side != errors.side, {:?} != {:?}",
-                self.side, event.side
-            )));
-        }
-        Ok(())
-    }
+
 
     pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
-        self.check_event_side(&event)?;
+        check_side(&self.side, &event.side)?;
         check_timestamp(self.last_ts, event.timestamp)?;
 
         if !self.ticks.contains_key(&event.price) {

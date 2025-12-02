@@ -1,6 +1,6 @@
 use crate::shared::errors::BaseError;
-use crate::shared::errors::BaseError::{IncompatibleExchange, OutdatedError};
-use crate::shared::TimestampMS;
+use crate::shared::errors::BaseError::{IncompatibleExchange, IncompatibleSide, OutdatedError};
+use crate::shared::{Side, TimestampMS};
 
 pub fn check_timestamp(last_ts: TimestampMS, current_ts: TimestampMS) -> Result<(), BaseError> {
     if current_ts < last_ts {
@@ -10,7 +10,6 @@ pub fn check_timestamp(last_ts: TimestampMS, current_ts: TimestampMS) -> Result<
     }
     Ok(())
 }
-
 
 pub fn check_ticker(left: &str, right: &str) -> Result<(), BaseError> {
     if left != right {
@@ -28,6 +27,16 @@ pub fn check_exchange(left: &str, right: &str) -> Result<(), BaseError> {
             "Exchanges are different. {} != {}",
             left, right
         )))?;
+    }
+    Ok(())
+}
+
+pub fn check_side(left: &Side, right: &Side) -> Result<(), BaseError> {
+    if left != right {
+        return Err(IncompatibleSide(format!(
+            "Sides are different, {:?} != {:?}",
+            left, right
+        )));
     }
     Ok(())
 }
