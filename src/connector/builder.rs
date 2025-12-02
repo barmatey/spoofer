@@ -2,6 +2,7 @@ use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValida
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, KrakenConnector};
 use std::sync::Arc;
+use tracing::Level;
 
 pub struct ConnectorBuilder {
     subscribe_trades: bool,
@@ -9,6 +10,7 @@ pub struct ConnectorBuilder {
     depth_value: u8,
     tickers: Vec<(String, f64, f64)>,
     error_handlers: Vec<ErrorHandler>,
+    log_level: Level,
 }
 
 impl ConnectorBuilder {
@@ -19,6 +21,7 @@ impl ConnectorBuilder {
             depth_value: 0,
             tickers: vec![],
             error_handlers: vec![],
+            log_level: Level::INFO,
         }
     }
 
@@ -38,14 +41,17 @@ impl ConnectorBuilder {
     }
 
     pub fn log_level_info(mut self) -> Self {
+        self.log_level = Level::INFO;
         self
     }
 
     pub fn log_level_error(mut self) -> Self {
+        self.log_level = Level::ERROR;
         self
     }
 
     pub fn log_level_debug(mut self) -> Self {
+        self.log_level = Level::DEBUG;
         self
     }
 
@@ -77,6 +83,7 @@ impl ConnectorBuilder {
         let config = ConnectorConfig {
             ticker_configs,
             error_handlers: self.error_handlers.clone(),
+            log_level: self.log_level,
         };
         Ok(config)
     }

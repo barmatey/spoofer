@@ -20,16 +20,22 @@ pub fn color_for_level(level: Level) -> &'static str {
 
 pub struct Logger {
     pub name: &'static str,
+    level: Level, // минимальный уровень логирования
 }
 
 impl Logger {
-    pub fn new(name: &'static str) -> Self {
-        Self { name }
+    pub fn new(name: &'static str, level: Level) -> Self {
+        Self {
+            name,
+            level,
+        }
     }
 
     fn log(&self, level: Level, msg: &str) {
-        let colored_level = format!("{}{}{}", color_for_level(level), level, RESET);
-        println!("[{}]: {} {}", self.name, colored_level, msg);
+        if level <= self.level {
+            let colored_level = format!("{}{}{}", color_for_level(level), level, RESET);
+            println!("[{}]: {} {}", self.name, colored_level, msg);
+        }
     }
 
     pub fn info(&self, msg: &str) {

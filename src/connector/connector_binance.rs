@@ -143,7 +143,7 @@ impl BinanceConnector {
                 config.ticker_configs,
                 convert_ticker_into_binance_symbol,
             ),
-            logger: Logger::new("binance"),
+            logger: Logger::new("binance", config.log_level),
             exchange: "binance".to_string(),
             error_handlers: config.error_handlers,
         }
@@ -168,6 +168,8 @@ impl BinanceConnector {
     }
 
     fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
+        self.logger.debug("Handle depth_update message");
+
         let txt = data.to_string();
         let parsed = model_from_string::<DepthUpdateMessage>(&txt)?;
 
@@ -207,6 +209,8 @@ impl BinanceConnector {
     }
 
     fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
+        self.logger.debug("Handle trade message");
+
         let txt = data.to_string();
         let trade = model_from_string::<AggTradeMessage>(&txt)?;
 

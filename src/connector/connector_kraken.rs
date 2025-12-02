@@ -76,7 +76,7 @@ impl KrakenConnector {
                 convert_ticker_into_kraken_symbol,
             ),
             exchange_name: "kraken".to_string(),
-            logger: Logger::new("kraken"),
+            logger: Logger::new("kraken", config.log_level),
             error_handlers: config.error_handlers.clone(),
         }
     }
@@ -86,6 +86,8 @@ impl KrakenConnector {
         data: &serde_json::Map<String, Value>,
         result: &mut StreamBuffer,
     ) -> Result<(), Error> {
+        self.logger.debug("Handle depth_update message");
+        
         let data = data
             .get("data")
             .and_then(|d| d.as_array())
@@ -135,6 +137,8 @@ impl KrakenConnector {
         obj: &serde_json::Map<String, Value>,
         result: &mut StreamBuffer,
     ) -> Result<(), Error> {
+        self.logger.debug("Handle trade message");
+        
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())

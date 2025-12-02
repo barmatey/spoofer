@@ -1,3 +1,4 @@
+use tracing::Level;
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::errors::Error::BuilderError;
 
@@ -74,4 +75,5 @@ impl<'a> TickerConfigValidator<'a> {
 pub struct ConnectorConfig {
     pub ticker_configs: Vec<TickerConfig>,
     pub error_handlers: Vec<ErrorHandler>,
+    pub log_level: Level,
 }

@@ -13,12 +13,11 @@ mod trade;
 async fn main() {
     let mut builder = ConnectorBuilder::new()
         .add_ticker("btc/usdt", 100, 100_000_000)
-        .add_error_handler(|err| println!("{:?}", err))
         .subscribe_depth(10)
         .subscribe_trades()
         .log_level_info();
 
-    let connector = builder.build_binance_connector().unwrap();
+    let connector = builder.build_kraken_connector().unwrap();
 
     // 1) создаём стрим
     let stream = connector.stream().await.unwrap();
@@ -27,9 +26,11 @@ async fn main() {
     // 2) читаем его
     while let Some(event) = stream.next().await {
         match event {
-            Event::Trade(x) => println!("{:?}", x),
+            Event::Trade(x) => {
+                // println!("{:?}", x)
+            },
             Event::LevelUpdate(y) => {
-                println!("{:?}", y)
+                // println!("{:?}", y)
             }
         }
     }
