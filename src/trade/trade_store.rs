@@ -41,3 +41,89 @@ impl TradeStore {
         &self.trades
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::shared::Side;
+    use super::*;
+
+    fn sample_trade(ts: TimestampMS, exchange: &str, ticker: &str) -> TradeEvent {
+        TradeEvent {
+            exchange: exchange.to_string(),
+            ticker: ticker.to_string(),
+            timestamp: ts,
+            price: 100,
+            quantity: 10,
+            market_maker: Side::Buy,
+        }
+    }
+
+    #[test]
+    fn test_update_adds_trade_in_order() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let t1 = sample_trade(1, "binance", "btc/usdt");
+        let t2 = sample_trade(2, "binance", "btc/usdt");
+
+        store.update(t1).unwrap();
+        store.update(t2).unwrap();
+
+        assert_eq!(store.trades.len(), 2);
+        assert!(store.trades[0].timestamp < store.trades[1].timestamp);
+    }
+
+    #[test]
+    fn test_update_rejects_wrong_exchange() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let trade = sample_trade(1, "kraken", "btc/usdt");
+
+        assert!(store.update(trade).is_err());
+        assert!(store.trades.is_empty());
+    }
+
+    #[test]
+    fn test_update_rejects_wrong_ticker() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let trade = sample_trade(1, "binance", "eth/usdt");
+
+        assert!(store.update(trade).is_err());
+        assert!(store.trades.is_empty());
+    }
+
+    #[test]
+    fn test_update_rejects_non_monotonic_timestamp() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let t1 = sample_trade(2, "binance", "btc/usdt");
+        let t2 = sample_trade(1, "binance", "btc/usdt");
+
+        store.update(t1).unwrap();
+        assert!(store.update(t2).is_err());
+        assert_eq!(store.trades.len(), 1);
+    }
+
+    #[test]
+    fn test_update_if_instrument_matches_adds_only_matching() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let matching = sample_trade(1, "binance", "btc/usdt");
+        let non_matching = sample_trade(2, "kraken", "btc/usdt");
+
+        store.update_if_instrument_matches(matching).unwrap();
+        store.update_if_instrument_matches(non_matching).unwrap();
+
+        assert_eq!(store.trades.len(), 1);
+        assert_eq!(store.trades[0].exchange, "binance");
+    }
+
+    #[test]
+    fn test_update_or_miss_ignores_non_matching() {
+        let mut store = TradeStore::new("binance", "btc/usdt");
+        let matching = sample_trade(1, "binance", "btc/usdt");
+        let non_matching = sample_trade(2, "kraken", "btc/usdt");
+
+        store.update_or_miss(matching);
+        store.update_or_miss(non_matching);
+
+        assert_eq!(store.trades.len(), 1);
+        assert_eq!(store.trades[0].exchange, "binance");
+    }
+}
