@@ -39,7 +39,6 @@ impl OrderBook {
     pub fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         check_exchange(&self.exchange, &event.exchange)?;
         check_ticker(&self.ticker, &event.ticker)?;
-
         match event.side {
             Side::Buy => self.bids.update(event),
             Side::Sell => self.asks.update(event),

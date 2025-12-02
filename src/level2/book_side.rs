@@ -1,13 +1,12 @@
 use crate::level2::level_tick::LevelTicks;
 use crate::level2::{Level2Error, LevelUpdated};
-use crate::shared::errors::{check_side};
+use crate::shared::errors::check_side;
 use crate::shared::{Price, Side};
 use either::Either;
-use std::collections::{BTreeSet, HashMap, VecDeque};
 use once_cell::sync::Lazy;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 static EMPTY_TICKS: Lazy<VecDeque<LevelUpdated>> = Lazy::new(|| VecDeque::new());
-
 
 pub struct BookSide {
     ticks: HashMap<Price, LevelTicks>,
@@ -32,7 +31,7 @@ impl BookSide {
         while self.sorted_prices.len() > self.max_levels {
             let remove_price = match self.side {
                 Side::Buy => *self.sorted_prices.iter().next().unwrap(), // наименьшая цена
-                Side::Sell => *self.sorted_prices.iter().rev().next().unwrap(), // наибольшая цена
+                Side::Sell => *self.sorted_prices.iter().next_back().unwrap(), // наибольшая цена
             };
             self.sorted_prices.remove(&remove_price);
             self.ticks.remove(&remove_price);
@@ -80,5 +79,22 @@ impl BookSide {
 
     pub fn side(&self) -> &Side {
         &self.side
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::level2::LevelUpdated;
+    use crate::shared::{Price, Quantity, Side};
+
+    fn make_event(price: Price, timestamp: u64, side: Side) -> LevelUpdated {
+        LevelUpdated {
+            price,
+            quantity: 1,
+            timestamp,
+            side,
+            ticker: "btc/usdt".to_string(),
+            exchange: "Binance".to_string(),
+        }
     }
 }
