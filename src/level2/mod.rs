@@ -1,6 +1,7 @@
 mod errors;
 mod events;
 mod order_book;
+mod level_tick;
 
 pub use order_book::OrderBook;
 

@@ -11,4 +11,7 @@ pub enum BaseError {
 
     #[error("IncompatibleSide")]
     IncompatibleSide(String),
+
+    #[error("IncompatiblePrice")]
+    IncompatiblePrice(String),
 }

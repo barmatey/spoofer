@@ -1,6 +1,8 @@
 use crate::shared::errors::BaseError;
-use crate::shared::errors::BaseError::{IncompatibleExchange, IncompatibleSide, IncompatibleTicker, OutdatedError};
-use crate::shared::{Side, TimestampMS};
+use crate::shared::errors::BaseError::{
+    IncompatibleExchange, IncompatiblePrice, IncompatibleSide, IncompatibleTicker, OutdatedError,
+};
+use crate::shared::{Price, Side, TimestampMS};
 
 pub fn check_timestamp(last_ts: TimestampMS, current_ts: TimestampMS) -> Result<(), BaseError> {
     if current_ts < last_ts {
@@ -33,10 +35,20 @@ pub fn check_exchange(left: &str, right: &str) -> Result<(), BaseError> {
 
 pub fn check_side(left: &Side, right: &Side) -> Result<(), BaseError> {
     if left != right {
-        return Err(IncompatibleSide(format!(
+        Err(IncompatibleSide(format!(
             "Sides are different, {:?} != {:?}",
             left, right
-        )));
+        )))?;
+    }
+    Ok(())
+}
+
+pub fn check_price(left: Price, right: Price) -> Result<(), BaseError> {
+    if left != right {
+        Err(IncompatiblePrice(format!(
+            "Prices are different, {} != {}",
+            left, right
+        )))?;
     }
     Ok(())
 }
