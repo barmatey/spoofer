@@ -1,4 +1,11 @@
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum TradeError{
-    OutdatedEvent,
+    #[error("OutdatedEvent")]
+    OutdatedEvent(String),
+
+    #[error("IncompatibleTicker")]
+    IncompatibleTicker(String),
+
+    #[error("IncompatibleExchange")]
+    IncompatibleExchange(String),
 }
