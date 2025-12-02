@@ -37,7 +37,15 @@ impl ConnectorBuilder {
         self
     }
 
-    pub fn log_level(mut self, value: &str) -> Self {
+    pub fn log_level_info(mut self) -> Self {
+        self
+    }
+
+    pub fn log_level_error(mut self) -> Self {
+        self
+    }
+
+    pub fn log_level_debug(mut self) -> Self {
         self
     }
 

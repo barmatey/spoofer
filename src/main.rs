@@ -16,7 +16,7 @@ async fn main() {
         .add_error_handler(|err| println!("{:?}", err))
         .subscribe_depth(10)
         .subscribe_trades()
-        .log_level("INFO");
+        .log_level_info();
 
     let connector = builder.build_binance_connector().unwrap();
 
