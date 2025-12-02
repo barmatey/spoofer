@@ -1,7 +1,6 @@
 use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
 use crate::shared::TimestampMS;
-use crate::trade::errors::TradeError;
-use crate::trade::TradeEvent;
+use crate::trade::{TradeEvent, TradeError};
 
 pub struct TradeStore {
     exchange: String,
