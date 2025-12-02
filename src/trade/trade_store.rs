@@ -1,29 +1,38 @@
 use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
 use crate::shared::TimestampMS;
 use crate::trade::{TradeError, TradeEvent};
+use std::collections::VecDeque;
 
 pub struct TradeStore {
     exchange: String,
     ticker: String,
-    trades: Vec<TradeEvent>,
+    trades: VecDeque<TradeEvent>,
     last_ts: TimestampMS,
+    max_buffer: usize,
 }
 
 impl TradeStore {
-    pub fn new(exchange: &str, ticker: &str) -> Self {
+    pub fn new(exchange: &str, ticker: &str, max_buffer: usize) -> Self {
         Self {
-            trades: Vec::new(),
+            trades: VecDeque::with_capacity(max_buffer),
             exchange: exchange.to_string(),
             ticker: ticker.to_string(),
             last_ts: 0,
+            max_buffer,
         }
     }
     pub fn update(&mut self, trade: TradeEvent) -> Result<(), TradeError> {
         check_timestamp(self.last_ts, trade.timestamp)?;
         check_exchange(&trade.exchange, &self.exchange)?;
         check_ticker(&trade.ticker, &self.ticker)?;
+
         self.last_ts = trade.timestamp;
-        self.trades.push(trade);
+        self.trades.push_back(trade);
+
+        if self.trades.len() > self.max_buffer {
+            self.trades.pop_front();
+        }
+
         Ok(())
     }
     pub fn update_if_instrument_matches(&mut self, trade: TradeEvent) -> Result<(), TradeError> {
@@ -37,16 +46,15 @@ impl TradeStore {
         let _ = self.update_if_instrument_matches(trade);
     }
 
-    pub fn trades(&self) -> &Vec<TradeEvent> {
+    pub fn trades(&self) -> &VecDeque<TradeEvent> {
         &self.trades
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::shared::Side;
     use super::*;
+    use crate::shared::Side;
 
     fn sample_trade(ts: TimestampMS, exchange: &str, ticker: &str) -> TradeEvent {
         TradeEvent {
@@ -61,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_update_adds_trade_in_order() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let t1 = sample_trade(1, "binance", "btc/usdt");
         let t2 = sample_trade(2, "binance", "btc/usdt");
 
@@ -74,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_update_rejects_wrong_exchange() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let trade = sample_trade(1, "kraken", "btc/usdt");
 
         assert!(store.update(trade).is_err());
@@ -83,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_update_rejects_wrong_ticker() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let trade = sample_trade(1, "binance", "eth/usdt");
 
         assert!(store.update(trade).is_err());
@@ -92,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_update_rejects_non_monotonic_timestamp() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let t1 = sample_trade(2, "binance", "btc/usdt");
         let t2 = sample_trade(1, "binance", "btc/usdt");
 
@@ -103,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_update_if_instrument_matches_adds_only_matching() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let matching = sample_trade(1, "binance", "btc/usdt");
         let non_matching = sample_trade(2, "kraken", "btc/usdt");
 
@@ -116,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_update_or_miss_ignores_non_matching() {
-        let mut store = TradeStore::new("binance", "btc/usdt");
+        let mut store = TradeStore::new("binance", "btc/usdt", 100);
         let matching = sample_trade(1, "binance", "btc/usdt");
         let non_matching = sample_trade(2, "kraken", "btc/usdt");
 
