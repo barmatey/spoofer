@@ -34,6 +34,12 @@ impl LevelTicks {
         Ok(())
     }
 
+    pub fn update_or_miss(&mut self, event: LevelUpdated){
+        if event.price == self.price && event.timestamp >= self.last_ts {
+            self.update(event).unwrap();
+        }
+    }
+
     pub fn get_all(&self) -> &VecDeque<LevelUpdated> {
         &self.ticks
     }
