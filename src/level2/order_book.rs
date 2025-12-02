@@ -1,7 +1,8 @@
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
+use crate::shared::event::check_timestamp;
 use crate::shared::event::EventError::{IncompatibleExchange, OutdatedEvent};
-use crate::shared::{Price, Side};
+use crate::shared::{Price, Side, TimestampMS};
 use either::Either;
 use std::collections::{BTreeSet, HashMap};
 
@@ -10,6 +11,7 @@ pub struct BookSide {
     sorted_prices: BTreeSet<Price>,
     side: Side,
     empty_ticks: Vec<LevelUpdated>,
+    last_ts: TimestampMS,
 }
 
 impl BookSide {
@@ -19,6 +21,7 @@ impl BookSide {
             sorted_prices: BTreeSet::new(),
             side,
             empty_ticks: vec![],
+            last_ts: 0,
         }
     }
 
@@ -32,27 +35,15 @@ impl BookSide {
         Ok(())
     }
 
-    fn check_event_timestamp(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
-        if self
-            .ticks
-            .get(&event.price)
-            .and_then(|v| v.last())
-            .map_or(false, |last| event.timestamp < last.timestamp)
-        {
-            Err(OutdatedEvent(
-                "You are trying to add an event that earliest last one".to_string(),
-            ))?;
-        }
-        Ok(())
-    }
-
     pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         self.check_event_side(&event)?;
-        self.check_event_timestamp(&event)?;
+        check_timestamp(self.last_ts, event.timestamp)?;
 
         if !self.ticks.contains_key(&event.price) {
             self.sorted_prices.insert(event.price);
         }
+
+        self.last_ts = event.timestamp;
 
         self.ticks
             .entry(event.price)
