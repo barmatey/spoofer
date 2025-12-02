@@ -22,7 +22,7 @@ impl BookSide {
         }
     }
 
-    fn check_event_side(&self, event: &LevelUpdated) -> Result<(), Level2Error>{
+    fn check_event_side(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if event.side != self.side {
             return Err(Level2Error::IncompatibleSide(format!(
                 "book_side != event.side, {:?} != {:?}",
@@ -32,7 +32,7 @@ impl BookSide {
         Ok(())
     }
 
-    fn check_event_timestamp(&self, event:&LevelUpdated) -> Result<(), Level2Error>{
+    fn check_event_timestamp(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if self
             .ticks
             .get(&event.price)
@@ -150,8 +150,8 @@ impl OrderBook {
         }
     }
 
-    pub fn update_if_instrument_matches(mut self, event: LevelUpdated) -> Result<(), Level2Error>{
-        if self.ticker == event.ticker && self.exchange == event.exchange{
+    pub fn update_if_instrument_matches(mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+        if self.ticker == event.ticker && self.exchange == event.exchange {
             match event.side {
                 Side::Buy => self.bids.update(event)?,
                 Side::Sell => self.asks.update(event)?,
