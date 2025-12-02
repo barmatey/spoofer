@@ -1,3 +1,5 @@
+use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
+use crate::shared::TimestampMS;
 use crate::trade::errors::TradeError;
 use crate::trade::TradeEvent;
 
@@ -5,6 +7,7 @@ pub struct TradeStore {
     exchange: String,
     ticker: String,
     trades: Vec<TradeEvent>,
+    last_ts: TimestampMS,
 }
 
 impl TradeStore {
@@ -13,10 +16,15 @@ impl TradeStore {
             trades: Vec::new(),
             exchange: exchange.to_string(),
             ticker: ticker.to_string(),
+            last_ts: 0,
         }
     }
 
     pub fn update(&mut self, trade: TradeEvent) -> Result<(), TradeError> {
+        check_timestamp(self.last_ts, trade.timestamp)?;
+        check_exchange(&trade.exchange, &self.exchange)?;
+        check_ticker(&trade.ticker, &self.ticker)?;
+        self.last_ts = trade.timestamp;
         self.trades.push(trade);
         Ok(())
     }

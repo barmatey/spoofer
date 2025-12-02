@@ -1,11 +1,7 @@
+use crate::shared::errors::BaseError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum TradeError{
-    #[error("OutdatedEvent")]
-    OutdatedEvent(String),
-
-    #[error("IncompatibleTicker")]
-    IncompatibleTicker(String),
-
-    #[error("IncompatibleExchange")]
-    IncompatibleExchange(String),
+    #[error("EventError")]
+    EventError(#[from] BaseError),
 }
