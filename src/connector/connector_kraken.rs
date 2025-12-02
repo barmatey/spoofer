@@ -4,19 +4,19 @@ use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
-use crate::connector::config::ConnectorConfig;
+use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ExchangeError::KrakenError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
 use crate::connector::services::parser::{
-    parse_serde_object, model_from_string, parse_timestamp_from_date_string, model_from_serde_value,
+    model_from_serde_value, model_from_string, parse_serde_object, parse_timestamp_from_date_string,
 };
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, send_ws_message, Connection};
+use crate::shared::logger::Logger;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
-use crate::shared::logger::Logger;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -46,14 +46,6 @@ fn convert_ticker_into_kraken_symbol(raw: &str) -> String {
     result
 }
 
-fn build_ticker_map(config: ConnectorConfig) -> TickerMap {
-    let mut result = TickerMap::new(convert_ticker_into_kraken_symbol);
-    for x in config.ticker_configs {
-        result.register(x);
-    }
-    result
-}
-
 fn validate_depth(value: u8) -> Result<(), Error> {
     let available = [10, 25];
     if !available.contains(&value) {
@@ -78,7 +70,10 @@ pub struct KrakenConnector {
 impl KrakenConnector {
     pub fn new(config: ConnectorConfig) -> Self {
         Self {
-            configs: build_ticker_map(config),
+            configs: TickerMap::from_configs(
+                config.ticker_configs,
+                convert_ticker_into_kraken_symbol,
+            ),
             exchange_name: "kraken".to_string(),
             logger: Logger::new("kraken"),
         }

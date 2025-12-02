@@ -23,6 +23,14 @@ impl TickerMap {
         }
     }
 
+    pub fn from_configs(configs: Vec<TickerConfig>, converter: Converter) -> Self {
+        let mut result = TickerMap::new(converter);
+        for config in configs {
+            result.register(config);
+        }
+        result
+    }
+
     pub fn register(&mut self, ticker_config: TickerConfig) {
         let symbol = (self.converter)(&ticker_config.ticker);
         let ticker = ticker_config.ticker.clone();
@@ -64,7 +72,7 @@ impl TickerMap {
         self.symbols.keys().cloned().collect()
     }
 
-    pub fn get_symbol_from_ticker(&self, ticker: &str) -> String{
+    pub fn get_symbol_from_ticker(&self, ticker: &str) -> String {
         (self.converter)(ticker)
     }
 }

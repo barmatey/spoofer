@@ -7,16 +7,16 @@ use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::ExchangeError::BinanceError;
 use crate::connector::errors::ParsingError::MessageParsingError;
-use crate::connector::services::parser::{parse_serde_value, model_from_string, parse_number};
+use crate::connector::services::parser::{model_from_string, parse_number, parse_serde_value};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
+use crate::shared::logger::Logger;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::shared::logger::Logger;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -57,14 +57,6 @@ fn convert_ticker_into_binance_symbol(raw: &str) -> String {
         .filter(|c| c.is_ascii_alphabetic()) // удаляем "/", "-" и всё лишнее
         .flat_map(|c| c.to_lowercase()) // to_lowercase возвращает итератор
         .collect()
-}
-
-fn build_ticker_map(configs: Vec<TickerConfig>) -> TickerMap {
-    let mut result = TickerMap::new(convert_ticker_into_binance_symbol);
-    for tc in configs {
-        result.register(tc);
-    }
-    result
 }
 
 async fn fetch_binance_symbols() -> Result<HashSet<String>, Error> {
@@ -146,7 +138,10 @@ pub struct BinanceConnector {
 impl BinanceConnector {
     pub fn new(config: ConnectorConfig) -> Self {
         Self {
-            configs: build_ticker_map(config.ticker_configs),
+            configs: TickerMap::from_configs(
+                config.ticker_configs,
+                convert_ticker_into_binance_symbol,
+            ),
             logger: Logger::new("binance"),
             exchange: "binance".to_string(),
         }
