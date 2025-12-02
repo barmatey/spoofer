@@ -119,4 +119,8 @@ impl OrderBook {
         }
         Ok(())
     }
+
+    pub fn update_or_miss(&mut self, event: LevelUpdated) {
+        let _ = self.update_if_instrument_matches(event);
+    }
 }

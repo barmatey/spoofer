@@ -1,6 +1,6 @@
 use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
 use crate::shared::TimestampMS;
-use crate::trade::{TradeEvent, TradeError};
+use crate::trade::{TradeError, TradeEvent};
 
 pub struct TradeStore {
     exchange: String,
@@ -32,6 +32,11 @@ impl TradeStore {
         }
         Ok(())
     }
+
+    pub fn update_or_miss(&mut self, trade: TradeEvent) {
+        let _ = self.update_if_instrument_matches(trade);
+    }
+
     pub fn trades(&self) -> &Vec<TradeEvent> {
         &self.trades
     }
