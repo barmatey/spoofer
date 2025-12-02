@@ -3,10 +3,9 @@ use crate::level2::{Level2Error, LevelUpdated};
 use crate::shared::errors::check_side;
 use crate::shared::{Price, Side};
 use either::Either;
-use once_cell::sync::Lazy;
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
-static EMPTY_TICKS: Lazy<VecDeque<LevelUpdated>> = Lazy::new(|| VecDeque::new());
+static EMPTY_TICKS: VecDeque<LevelUpdated> = VecDeque::new();
 
 pub struct BookSide {
     ticks: HashMap<Price, LevelTicks>,
