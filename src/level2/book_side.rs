@@ -4,6 +4,10 @@ use crate::shared::errors::{check_side};
 use crate::shared::{Price, Side};
 use either::Either;
 use std::collections::{BTreeSet, HashMap, VecDeque};
+use once_cell::sync::Lazy;
+
+static EMPTY_TICKS: Lazy<VecDeque<LevelUpdated>> = Lazy::new(|| VecDeque::new());
+
 
 pub struct BookSide {
     ticks: HashMap<Price, LevelTicks>,
@@ -11,7 +15,6 @@ pub struct BookSide {
     side: Side,
     max_levels: usize,
     max_ticks_per_price: usize,
-    empty_ticks: VecDeque<LevelUpdated>,
 }
 
 impl BookSide {
@@ -22,7 +25,6 @@ impl BookSide {
             side,
             max_levels,
             max_ticks_per_price,
-            empty_ticks: VecDeque::new(),
         }
     }
 
@@ -62,10 +64,10 @@ impl BookSide {
         }
     }
     pub fn level_ticks(&self, price: Price) -> &VecDeque<LevelUpdated> {
-        match self.ticks.get(&price) {
-            Some(v) => v.get_all(),
-            None => &self.empty_ticks,
-        }
+        self.ticks
+            .get(&price)
+            .map(|v| v.get_all())
+            .unwrap_or(&EMPTY_TICKS)
     }
 
     pub fn best_prices(&self, depth: usize) -> impl Iterator<Item = &Price> {
