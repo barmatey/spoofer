@@ -24,8 +24,6 @@ impl BookSide {
         }
     }
 
-
-
     pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
         check_side(&self.side, &event.side)?;
         check_timestamp(self.last_ts, event.timestamp)?;

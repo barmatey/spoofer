@@ -19,7 +19,6 @@ impl TradeStore {
             last_ts: 0,
         }
     }
-
     pub fn update(&mut self, trade: TradeEvent) -> Result<(), TradeError> {
         check_timestamp(self.last_ts, trade.timestamp)?;
         check_exchange(&trade.exchange, &self.exchange)?;
@@ -28,7 +27,12 @@ impl TradeStore {
         self.trades.push(trade);
         Ok(())
     }
-
+    pub fn update_if_instrument_matches(&mut self, trade: TradeEvent) -> Result<(), TradeError> {
+        if self.ticker == trade.ticker && self.exchange == trade.exchange {
+            self.update(trade)?;
+        }
+        Ok(())
+    }
     pub fn trades(&self) -> &Vec<TradeEvent> {
         &self.trades
     }
