@@ -1,7 +1,7 @@
 #[derive(Debug, thiserror::Error)]
-pub enum EventError {
+pub enum BaseError {
     #[error("OutdatedEvent")]
-    OutdatedEvent(String),
+    OutdatedError(String),
 
     #[error("IncompatibleTicker")]
     IncompatibleTicker(String),
@@ -9,3 +9,5 @@ pub enum EventError {
     #[error("IncompatibleExchange")]
     IncompatibleExchange(String),
 }
+
+

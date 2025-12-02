@@ -258,7 +258,7 @@ impl ConnectorInternal for BinanceConnector {
             "depthUpdate" => self.handle_depth(data, result),
             "aggTrade" => self.handle_trade(data, result),
             other => Err(MessageParsingError(format!(
-                "Unknown event type: {}",
+                "Unknown errors type: {}",
                 other
             )))?,
         }

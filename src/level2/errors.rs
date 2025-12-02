@@ -1,4 +1,4 @@
-use crate::shared::event::EventError;
+use crate::shared::errors::BaseError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Level2Error {
@@ -6,5 +6,5 @@ pub enum Level2Error {
     IncompatibleSide(String),
 
     #[error("OutdatedEvent")]
-    EventError(#[from] EventError),
+    EventError(#[from] BaseError),
 }

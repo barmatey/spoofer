@@ -22,7 +22,7 @@ impl TradeStore {
         if let Some(last) = self.trades.last() {
             if trade.timestamp < last.timestamp {
                 return Err(TradeError::OutdatedEvent(
-                    "You are trying to add an event that earliest last one".to_string(),
+                    "You are trying to add an errors that earliest last one".to_string(),
                 ));
             }
         }
@@ -32,7 +32,7 @@ impl TradeStore {
     fn check_exchange(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if event.exchange != self.exchange {
             Err(IncompatibleExchange(format!(
-                "TradeStore.exchange != event.exchange. {} != {}",
+                "TradeStore.exchange != errors.exchange. {} != {}",
                 self.exchange, event.exchange
             )))?;
         }
@@ -42,7 +42,7 @@ impl TradeStore {
     fn check_ticker(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if event.ticker != self.ticker {
             Err(IncompatibleExchange(format!(
-                "TradeStore.ticker != event.ticker. {} != {}",
+                "TradeStore.ticker != errors.ticker. {} != {}",
                 self.ticker, event.ticker
             )))?;
         }

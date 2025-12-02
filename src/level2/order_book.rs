@@ -1,7 +1,6 @@
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
-use crate::shared::event::check_timestamp;
-use crate::shared::event::EventError::{IncompatibleExchange, OutdatedEvent};
+use crate::shared::errors::{check_exchange, check_ticker, check_timestamp};
 use crate::shared::{Price, Side, TimestampMS};
 use either::Either;
 use std::collections::{BTreeSet, HashMap};
@@ -28,7 +27,7 @@ impl BookSide {
     fn check_event_side(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if event.side != self.side {
             return Err(Level2Error::IncompatibleSide(format!(
-                "book_side != event.side, {:?} != {:?}",
+                "book_side != errors.side, {:?} != {:?}",
                 self.side, event.side
             )));
         }
@@ -96,26 +95,6 @@ impl OrderBook {
         }
     }
 
-    fn check_exchange(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
-        if event.exchange != self.exchange {
-            Err(IncompatibleExchange(format!(
-                "OrderBook.exchange != event.exchange. {} != {}",
-                self.exchange, event.exchange
-            )))?;
-        }
-        Ok(())
-    }
-
-    fn check_ticker(&self, event: &LevelUpdated) -> Result<(), Level2Error> {
-        if event.ticker != self.ticker {
-            Err(IncompatibleExchange(format!(
-                "OrderBook.ticker != event.ticker. {} != {}",
-                self.ticker, event.ticker
-            )))?;
-        }
-        Ok(())
-    }
-
     pub fn bids(&self) -> &BookSide {
         &self.bids
     }
@@ -132,8 +111,8 @@ impl OrderBook {
     }
 
     pub fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
-        self.check_exchange(&event)?;
-        self.check_ticker(&event)?;
+        check_exchange(&self.exchange, &event.exchange)?;
+        check_ticker(&self.ticker, &event.ticker)?;
 
         match event.side {
             Side::Buy => self.bids.update(event),
