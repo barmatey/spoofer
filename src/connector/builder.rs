@@ -1,6 +1,7 @@
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, KrakenConnector};
+use std::sync::Arc;
 
 pub struct ConnectorBuilder {
     subscribe_trades: bool,
@@ -31,7 +32,7 @@ impl ConnectorBuilder {
     where
         F: Fn(&Error) + 'static,
     {
-        let boxed = Box::new(handler);
+        let boxed = Arc::new(handler);
         self.error_handlers.push(boxed);
         self
     }
@@ -65,9 +66,10 @@ impl ConnectorBuilder {
             TickerConfigValidator::new(&tc).validate()?;
             ticker_configs.push(tc);
         }
-        let mut error_handlers = vec![];
-        todo!();
-        let config = ConnectorConfig { ticker_configs, error_handlers };
+        let config = ConnectorConfig {
+            ticker_configs,
+            error_handlers: self.error_handlers.clone(),
+        };
         Ok(config)
     }
 

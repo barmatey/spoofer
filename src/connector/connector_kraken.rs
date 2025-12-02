@@ -1,10 +1,10 @@
-use crate::connector::errors::Error;
+use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
 
-use crate::connector::config::{ConnectorConfig, TickerConfig};
+use crate::connector::config::{ConnectorConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ExchangeError::KrakenError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
@@ -65,6 +65,7 @@ pub struct KrakenConnector {
     configs: TickerMap,
     exchange_name: String,
     logger: Logger,
+    error_handlers: Vec<ErrorHandler>,
 }
 
 impl KrakenConnector {
@@ -76,6 +77,7 @@ impl KrakenConnector {
             ),
             exchange_name: "kraken".to_string(),
             logger: Logger::new("kraken"),
+            error_handlers: config.error_handlers.clone(),
         }
     }
 
@@ -239,5 +241,8 @@ impl ConnectorInternal for KrakenConnector {
 
     fn on_error(&self, err: &Error) {
         self.logger.error(&format!("{:?}", err));
+        for handler in self.error_handlers.iter() {
+            handler(err)
+        }
     }
 }

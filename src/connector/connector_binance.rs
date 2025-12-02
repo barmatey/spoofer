@@ -1,4 +1,4 @@
-use crate::connector::errors::Error;
+use crate::connector::errors::{Error, ErrorHandler};
 use reqwest::get;
 use std::collections::HashSet;
 
@@ -133,6 +133,7 @@ pub struct BinanceConnector {
     exchange: String,
     configs: TickerMap,
     logger: Logger,
+    error_handlers: Vec<ErrorHandler>,
 }
 
 impl BinanceConnector {
@@ -144,6 +145,7 @@ impl BinanceConnector {
             ),
             logger: Logger::new("binance"),
             exchange: "binance".to_string(),
+            error_handlers: config.error_handlers,
         }
     }
 
@@ -259,7 +261,10 @@ impl ConnectorInternal for BinanceConnector {
     }
 
     fn on_error(&self, err: &Error) {
-        let err = format!("{:?}", err);
-        self.logger.error(&err);
+        let err_message = format!("{:?}", err);
+        self.logger.error(&err_message);
+        for handler in self.error_handlers.iter() {
+            handler(err)
+        }
     }
 }

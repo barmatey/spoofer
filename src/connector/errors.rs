@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ParsingError {
     #[error("Level2 parsing error")]
@@ -52,4 +54,4 @@ pub enum Error {
     InternalError(String),
 }
 
-pub type ErrorHandler = Box<dyn Fn(&Error)>;
+pub type ErrorHandler = Arc<dyn Fn(&Error)>;
