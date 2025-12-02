@@ -150,7 +150,13 @@ impl OrderBook {
         }
     }
 
-    pub fn update_or_miss(&mut self, event: LevelUpdated){
-
+    pub fn update_if_instrument_matches(mut self, event: LevelUpdated) -> Result<(), Level2Error>{
+        if self.ticker == event.ticker && self.exchange == event.exchange{
+            match event.side {
+                Side::Buy => self.bids.update(event)?,
+                Side::Sell => self.asks.update(event)?,
+            }
+        }
+        Ok(())
     }
 }
