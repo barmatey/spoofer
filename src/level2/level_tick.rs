@@ -98,7 +98,6 @@ mod tests {
         let err = lvl.update(make_event(1010, 1, 5)).unwrap_err();
         match err {
             Level2Error::EventError { .. } => {}
-            _ => panic!("Expected InvalidPrice error"),
         }
     }
 
@@ -110,7 +109,6 @@ mod tests {
         let err = lvl.update(make_event(100, 1, 5)).unwrap_err();
         match err {
             Level2Error::EventError{ .. } => {}
-            _ => panic!("Expected TimestampError"),
         }
     }
 
