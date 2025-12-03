@@ -14,8 +14,8 @@ pub struct OrderBook {
 impl OrderBook {
     pub fn new(exchange: &str, ticker: &str, max_depth: usize, max_ticks: usize) -> Self {
         Self {
-            bids: BookSide::new(Side::Buy, max_depth, max_ticks),
-            asks: BookSide::new(Side::Sell, max_depth, max_ticks),
+            bids: BookSide::new(Side::Buy, max_depth),
+            asks: BookSide::new(Side::Sell, max_depth),
             exchange: exchange.to_string(),
             ticker: ticker.to_string(),
         }
