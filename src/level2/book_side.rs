@@ -83,17 +83,126 @@ impl BookSide {
 
 #[cfg(test)]
 mod tests {
-    use crate::level2::LevelUpdated;
-    use crate::shared::{Price, Quantity, Side};
+    use super::*;
+    use crate::level2::{LevelUpdated};
+    use crate::shared::{Price, Side};
 
-    fn make_event(price: Price, timestamp: u64, side: Side) -> LevelUpdated {
+    fn ev(price: Price, ts: u64, side: Side) -> LevelUpdated {
         LevelUpdated {
             price,
             quantity: 1,
-            timestamp,
+            timestamp: ts,
             side,
             ticker: "btc/usdt".to_string(),
             exchange: "Binance".to_string(),
         }
+    }
+
+    #[test]
+    fn test_add_single_level() {
+        let mut bs = BookSide::new(Side::Buy, 10, 100);
+        bs.update(ev(100, 1, Side::Buy)).unwrap();
+
+        let lv = bs.level_ticks(100);
+        assert_eq!(lv.len(), 1);
+        assert_eq!(lv[0].timestamp, 1);
+    }
+
+    #[test]
+    fn test_wrong_side_rejected() {
+        let mut bs = BookSide::new(Side::Buy, 10, 100);
+
+        let result = bs.update(ev(100, 1, Side::Sell));
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn test_update_or_miss_ignores_wrong_side() {
+        let mut bs = BookSide::new(Side::Buy, 10, 100);
+
+        bs.update_or_miss(ev(100, 1, Side::Sell));
+        assert!(bs.level_ticks(100).is_empty());
+    }
+
+    #[test]
+    fn test_best_prices_buy() {
+        let mut bs = BookSide::new(Side::Buy, 10, 100);
+        bs.update(ev(100, 1, Side::Buy)).unwrap();
+        bs.update(ev(105, 2, Side::Buy)).unwrap();
+        bs.update(ev(103, 3, Side::Buy)).unwrap();
+
+        let best: Vec<_> = bs.best_prices(2).copied().collect();
+        assert_eq!(best, vec![105, 103]); // у Buy — убывающий порядок
+    }
+
+    #[test]
+    fn test_best_prices_sell() {
+        let mut bs = BookSide::new(Side::Sell, 10, 100);
+        bs.update(ev(100, 1, Side::Sell)).unwrap();
+        bs.update(ev(105, 2, Side::Sell)).unwrap();
+        bs.update(ev(103, 3, Side::Sell)).unwrap();
+
+        let best: Vec<_> = bs.best_prices(2).copied().collect();
+        assert_eq!(best, vec![100, 103]); // у Sell — возрастающий порядок
+    }
+
+    #[test]
+    fn test_max_levels_enforced_buy() {
+        let mut bs = BookSide::new(Side::Buy, 2, 100);
+
+        bs.update(ev(100, 1, Side::Buy)).unwrap();
+        bs.update(ev(101, 2, Side::Buy)).unwrap();
+        bs.update(ev(102, 3, Side::Buy)).unwrap(); // должен вытеснить наименьшую цену = 100
+
+        assert!(bs.level_ticks(100).is_empty());
+        assert!(!bs.level_ticks(101).is_empty());
+        assert!(!bs.level_ticks(102).is_empty());
+    }
+
+    #[test]
+    fn test_max_levels_enforced_sell() {
+        let mut bs = BookSide::new(Side::Sell, 2, 100);
+
+        bs.update(ev(100, 1, Side::Sell)).unwrap();
+        bs.update(ev(101, 2, Side::Sell)).unwrap();
+        bs.update(ev(102, 3, Side::Sell)).unwrap(); // должен вытеснить наибольшую цену = 102
+
+        assert!(bs.level_ticks(102).is_empty());
+        assert!(!bs.level_ticks(100).is_empty());
+        assert!(!bs.level_ticks(101).is_empty());
+    }
+
+    #[test]
+    fn test_max_ticks_per_price() {
+        let mut bs = BookSide::new(Side::Buy, 10, 2);
+
+        bs.update(ev(100, 1, Side::Buy)).unwrap();
+        bs.update(ev(100, 2, Side::Buy)).unwrap();
+        bs.update(ev(100, 3, Side::Buy)).unwrap(); // должен вытеснить самый старый
+
+        let ticks = bs.level_ticks(100);
+        assert_eq!(ticks.len(), 2);
+        assert_eq!(ticks[0].timestamp, 2);
+        assert_eq!(ticks[1].timestamp, 3);
+    }
+
+    #[test]
+    fn test_level_ticks_missing_returns_empty() {
+        let bs = BookSide::new(Side::Buy, 10, 100);
+        let lv = bs.level_ticks(999);
+        assert!(lv.is_empty());
+    }
+
+    #[test]
+    fn test_update_or_miss_adds_miss_event() {
+        let mut bs = BookSide::new(Side::Buy, 10, 10);
+
+        bs.update_or_miss(ev(100, 1, Side::Buy));
+        bs.update_or_miss(ev(100, 2, Side::Buy));
+
+        let ticks = bs.level_ticks(100);
+        assert_eq!(ticks.len(), 2);
+        assert_eq!(ticks[0].timestamp, 1);
+        assert_eq!(ticks[1].timestamp, 2);
     }
 }
