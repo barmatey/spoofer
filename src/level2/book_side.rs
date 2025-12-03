@@ -205,4 +205,16 @@ mod tests {
         assert_eq!(ticks[0].timestamp, 1);
         assert_eq!(ticks[1].timestamp, 2);
     }
+
+    #[test]
+    fn test_best_price_ignores_zero_quantity() {
+        let mut bs = BookSide::new(Side::Buy, 10, 100);
+        bs.update(ev(101, 1, Side::Buy)).unwrap();
+        let mut ev_zero = ev(102, 2, Side::Buy);
+        ev_zero.quantity = 0;
+        bs.update(ev_zero).unwrap();
+        bs.update(ev(100, 3, Side::Buy)).unwrap();
+        let best: Vec<_> = bs.best_prices(3).copied().collect();
+        assert_eq!(best, vec![101, 100]);
+    }
 }
