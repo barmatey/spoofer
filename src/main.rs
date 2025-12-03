@@ -28,7 +28,7 @@ async fn main() {
 
     let mut stream = pin!(select(kraken_stream, binance_stream));
 
-    let mut book = OrderBook::new("kraken","btc/usdt");
+    let mut book = OrderBook::new("kraken","btc/usdt", 100, 100);
     let mut trades = TradeStore::new("kraken","btc/usdt", 100);
 
     // 2) читаем его
