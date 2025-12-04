@@ -1,11 +1,11 @@
-use std::sync::Arc;
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
+use std::sync::Arc;
 
-use crate::connector::config::{ConnectorConfig};
+use crate::connector::config::ConnectorConfig;
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::ExchangeError::KrakenError;
 use crate::connector::errors::ParsingError::{ConvertingError, MessageParsingError};
@@ -88,7 +88,7 @@ impl KrakenConnector {
         result: &mut StreamBuffer,
     ) -> Result<(), Error> {
         self.logger.debug("Handle depth_update message");
-        
+
         let data = data
             .get("data")
             .and_then(|d| d.as_array())
@@ -120,7 +120,7 @@ impl KrakenConnector {
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 let event = LevelUpdated {
                     exchange: Arc::clone(&self.exchange_name),
-                    ticker: config.ticker.clone(),
+                    ticker: Arc::clone(&config.ticker),
                     side: Side::Sell,
                     price: price as Price,
                     quantity: qty as Quantity,
@@ -139,7 +139,7 @@ impl KrakenConnector {
         result: &mut StreamBuffer,
     ) -> Result<(), Error> {
         self.logger.debug("Handle trade message");
-        
+
         let data = obj
             .get("data")
             .and_then(|d| d.as_array())
@@ -160,7 +160,7 @@ impl KrakenConnector {
             };
 
             let event = TradeEvent {
-                ticker: config.ticker.clone(),
+                ticker: Arc::clone(&config.ticker),
                 exchange: Arc::clone(&self.exchange_name),
                 price: price_f as Price,
                 quantity: qty_f as Quantity,
@@ -239,7 +239,10 @@ impl ConnectorInternal for KrakenConnector {
             "trade" => self.handle_trade(&obj, buffer)?,
             "status" => {}
             "heartbeat" => {}
-            _ => Err(KrakenError(format!("Unexpected channel {}", channel)))?,
+            _ => {
+                let msg = format!("Unexpected channel {}", channel);
+                self.logger.warn(&msg);
+            }
         };
         Ok(())
     }

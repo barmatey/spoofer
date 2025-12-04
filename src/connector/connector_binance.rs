@@ -195,8 +195,8 @@ impl BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             let ev = LevelUpdated {
-                ticker: ticker_config.ticker.clone(),
-                exchange: self.exchange.clone(),
+                ticker: Arc::clone(&ticker_config.ticker),
+                exchange: Arc::clone(&self.exchange),
                 side: Side::Sell,
                 price: price as Price,
                 quantity: quantity as Quantity,
