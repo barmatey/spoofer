@@ -1,8 +1,9 @@
 use crate::connector::{Connector, ConnectorBuilder, Event};
-use crate::level2::{display_books, OrderBook};
+use crate::level2::{display_books, LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::format_price;
 use crate::signal::ArbitrageMonitor;
 use crate::trade::TradeStore;
+use clickhouse::Client;
 use futures_util::{stream::select, StreamExt};
 use std::pin::pin;
 use std::time::{Duration, Instant};
@@ -42,6 +43,15 @@ async fn main() {
     let binance_stream = pin!(binance.stream().await.unwrap());
     let mut stream = pin!(select(kraken_stream, binance_stream));
 
+    // Repos
+    let client = Client::default()
+        .with_url("tcp://127.0.0.1:9000")
+        .with_user("default")
+        .with_password("")
+        .with_database("default");
+
+    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
+
     // 2) читаем события
     while let Some(event) = stream.next().await {
         match event {
@@ -67,6 +77,9 @@ async fn main() {
                         None => {}
                     }
                 }
+
+                depth_repo.add_one(ev);
+                depth_repo.save_if_full().await.unwrap();
             }
         }
     }

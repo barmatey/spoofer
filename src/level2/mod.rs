@@ -14,3 +14,4 @@ pub use errors::Level2Error;
 
 pub use services::display_books;
 
+pub use repo::LevelUpdatedRepo;
