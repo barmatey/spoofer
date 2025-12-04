@@ -15,9 +15,13 @@ mod signal;
 mod level2;
 mod trade;
 
+mod db;
+
 #[tokio::main]
 async fn main() {
-    let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
+    let mut builder = ConnectorBuilder::new()
+        .subscribe_depth(10)
+        .log_level_debug();
     let tickers = [
         ("btc/usdt", 100, 1_000_000),
         ("eth/usdt", 100, 10_000),
@@ -45,7 +49,7 @@ async fn main() {
 
     // Repos
     let client = Client::default()
-        .with_url("tcp://127.0.0.1:9000")
+        .with_url("http://127.0.0.1:8123") // порт HTTP ClickHouse по умолчанию
         .with_user("default")
         .with_password("")
         .with_database("default");
