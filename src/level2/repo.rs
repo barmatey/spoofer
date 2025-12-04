@@ -1,15 +1,15 @@
-use crate::level2::{Level2Error, LevelUpdated};
 use clickhouse::insert::Insert;
+use crate::level2::{Level2Error, LevelUpdated};
 use clickhouse::Client;
 
 pub struct LevelUpdatedRepo<'a> {
-    client: &'a Client,
+    client:&'a Client,
     buffer_size: usize,
     buffer: Vec<LevelUpdated>,
 }
 
 impl<'a> LevelUpdatedRepo<'a> {
-    pub fn new(client: &'a Client, buffer_size: usize) -> Self {
+    pub fn new(client:&'a Client, buffer_size: usize) -> Self {
         Self {
             client,
             buffer_size,
@@ -20,8 +20,8 @@ impl<'a> LevelUpdatedRepo<'a> {
     pub fn add_one(&mut self, event: LevelUpdated) {
         self.buffer.push(event);
     }
-
-    pub async fn save_if_full(&mut self) -> Result<(), Level2Error> {
+    
+    pub async fn save_if_full(&mut self)-> Result<(), Level2Error>{
         if self.buffer.len() >= self.buffer_size {
             self.save().await?
         }
@@ -36,20 +36,18 @@ impl<'a> LevelUpdatedRepo<'a> {
             self.client.insert("level_updates").await?;
 
         for event in self.buffer.iter() {
-            insert
-                .write(&(
-                    event.exchange.clone(),
-                    event.ticker.clone(),
-                    event.side as u8,
-                    event.price,
-                    event.quantity,
-                    event.timestamp,
-                ))
-                .await?;
+            insert.write(&(
+                event.exchange.clone(),
+                event.ticker.clone(),
+                event.side as u8,
+                event.price,
+                event.quantity,
+                event.timestamp,
+            )).await?;
         }
 
         insert.end().await?;
         self.buffer.clear();
-        Ok(())
+    Ok(())
     }
 }
