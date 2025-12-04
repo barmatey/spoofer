@@ -8,6 +8,8 @@ pub type TimestampMS = u64;
 
 pub type Period = (TimestampMS, TimestampMS);
 
+pub type Profit = i64;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Side {
     Buy,

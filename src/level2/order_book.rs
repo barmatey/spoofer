@@ -21,6 +21,14 @@ impl OrderBook {
         }
     }
 
+    pub fn exchange(&self) -> &str{
+        &self.exchange
+    }
+
+    pub fn ticker(&self) -> &str{
+        &self.ticker
+    }
+
     pub fn bids(&self) -> &BookSide {
         &self.bids
     }
