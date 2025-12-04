@@ -19,19 +19,19 @@ pub struct ArbitrageSignal {
 pub struct ArbitrageMonitor<'a> {
     book_a: &'a OrderBook,
     book_b: &'a OrderBook,
-    min_profit_pct: f32, // минимальная прибыль в %
+    min_profit: f32, // минимальная прибыль в %
 }
 
 impl<'a> ArbitrageMonitor<'a> {
-    pub fn new(book_a: &'a OrderBook, book_b: &'a OrderBook, min_profit_pct: f32) -> Self {
+    pub fn new(book_a: &'a OrderBook, book_b: &'a OrderBook, min_profit: f32) -> Self {
         Self {
             book_a,
             book_b,
-            min_profit_pct,
+            min_profit,
         }
     }
 
-    pub fn check_opportunity(&self) -> Option<ArbitrageSignal> {
+    pub fn execute(&self) -> Option<ArbitrageSignal> {
         let bid_a = self.book_a.bids().best_price();
         let ask_a = self.book_a.asks().best_price();
         let bid_b = self.book_b.bids().best_price();
@@ -73,7 +73,7 @@ impl<'a> ArbitrageMonitor<'a> {
         // нормализованный профит
         let profit_pct = (sell_price - buy_price) as f32 / buy_price as f32;
 
-        if profit_pct < self.min_profit_pct {
+        if profit_pct < self.min_profit {
             return None;
         }
 
@@ -118,16 +118,16 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // A: bid=99, ask=100
-        a.update(ev("binance", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
 
         // B: bid=99, ask=100
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
-        b.update(ev("kraken", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.001);
 
-        assert!(mon.check_opportunity().is_none());
+        assert!(mon.execute().is_none());
     }
 
     #[test]
@@ -136,13 +136,13 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // A: buy at 100
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
         // B: sell at 103
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 103, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 103, 1)).unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
-        let sig = mon.check_opportunity().expect("should detect arbitrage");
+        let sig = mon.execute().expect("should detect arbitrage");
 
         assert_eq!(sig.buy.exchange, "binance");
         assert_eq!(sig.sell.exchange, "kraken");
@@ -156,13 +156,13 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // B: ask = 100
-        b.update(ev("kraken", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
         // A: bid = 105
-        a.update(ev("binance", "BTC/USDT", Side::Buy, 105, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Buy, 105, 1)).unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
-        let sig = mon.check_opportunity().expect("should detect arbitrage");
+        let sig = mon.execute().expect("should detect arbitrage");
         assert_eq!(sig.buy.exchange, "kraken");
         assert_eq!(sig.sell.exchange, "binance");
         assert_eq!(sig.profit_abs, Some(5.0));
@@ -175,14 +175,14 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // A: ask = 100
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 10_000, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 10_000, 1)).unwrap();
         // B: bid = 100.05
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 10_005, 1)).unwrap(); // <--- если Price = 10000 => 100.00
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 10_005, 1)).unwrap(); // <--- если Price = 10000 => 100.00
 
         // threshold = 0.001 = 0.1%
         let mon = ArbitrageMonitor::new(&a, &b, 0.001);
 
-        assert!(mon.check_opportunity().is_none());
+        assert!(mon.execute().is_none());
     }
 
     #[test]
@@ -191,18 +191,18 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // An asks: 100, 101, 102 → best = 100
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 102, 1)).unwrap();
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 101, 1)).unwrap();
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 102, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 101, 1)).unwrap();
+        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
 
         // B bids: 99, 103, 101 → best = 103
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 103, 1)).unwrap();
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 101, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 99, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 103, 1)).unwrap();
+        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 101, 1)).unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
-        let sig = mon.check_opportunity().unwrap();
+        let sig = mon.execute().unwrap();
 
         assert_eq!(sig.buy.price, 100);
         assert_eq!(sig.sell.price, 103);

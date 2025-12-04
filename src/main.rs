@@ -3,6 +3,7 @@ use crate::level2::OrderBook;
 use crate::trade::TradeStore;
 use futures_util::{stream::select, StreamExt};
 use std::pin::pin;
+use crate::signal::ArbitrageMonitor;
 
 mod connector;
 mod shared;
@@ -22,6 +23,7 @@ async fn main() {
     let kraken = builder.build_kraken_connector().unwrap();
     let binance = builder.build_binance_connector().unwrap();
 
+
     // 1) создаём стрим
     let kraken_stream = pin!(kraken.stream().await.unwrap());
     let binance_stream = pin!(binance.stream().await.unwrap());
@@ -36,9 +38,17 @@ async fn main() {
         match event {
             Event::Trade(x) => {}
             Event::LevelUpdate(ev) => {
-                kraken_book.update_if_instrument_matches(ev).unwrap();
-                binance_book.update_if_instrument_matches(ev).unwrap();
+                kraken_book.update_if_instrument_matches(&ev).unwrap();
+                binance_book.update_if_instrument_matches(&ev).unwrap();
             }
         }
+        
+        let monitor = ArbitrageMonitor::new(&kraken_book, &binance_book, 0.01);
+        let signal = monitor.execute();
+        match signal { 
+            Some(s) => println!("{:?}", s),
+            None => {}
+        }
+        
     }
 }

@@ -68,7 +68,7 @@ impl BookSide {
         }
     }
 
-    pub(crate) fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    pub(crate) fn update(&mut self, event: &LevelUpdated) -> Result<(), Level2Error> {
         check_side(&self.side, &event.side)?;
         if event.quantity == 0 {
             self.remove_level(event.price);
@@ -78,7 +78,7 @@ impl BookSide {
         Ok(())
     }
 
-    pub(crate) fn update_or_miss(&mut self, event: LevelUpdated) {
+    pub(crate) fn update_or_miss(&mut self, event: &LevelUpdated) {
         if event.side == self.side {
             self.update(event).unwrap();
         }
@@ -125,8 +125,8 @@ mod tests {
     fn test_insert_levels() {
         let mut book = BookSide::new(Side::Buy, 5);
 
-        book.update(event(Side::Buy, 100, 10)).unwrap();
-        book.update(event(Side::Buy, 105, 20)).unwrap();
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 105, 20)).unwrap();
 
         // Проверка уровня и best_price
         assert_eq!(book.best_price(), 105);
@@ -142,11 +142,11 @@ mod tests {
     fn test_update_level_quantity() {
         let mut book = BookSide::new(Side::Sell, 5);
 
-        book.update(event(Side::Sell, 200, 50)).unwrap();
-        book.update(event(Side::Sell, 150, 30)).unwrap();
+        book.update(&event(Side::Sell, 200, 50)).unwrap();
+        book.update(&event(Side::Sell, 150, 30)).unwrap();
 
         // Обновление существующего уровня
-        book.update(event(Side::Sell, 200, 60)).unwrap();
+        book.update(&event(Side::Sell, 200, 60)).unwrap();
 
         assert_eq!(book.levels[&200], 60);
         assert_eq!(book.best_price(), 150); // минимальная цена для Sell
@@ -156,16 +156,16 @@ mod tests {
     fn test_remove_level() {
         let mut book = BookSide::new(Side::Buy, 5);
 
-        book.update(event(Side::Buy, 100, 10)).unwrap();
-        book.update(event(Side::Buy, 105, 20)).unwrap();
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 105, 20)).unwrap();
 
         // Удаляем лучший уровень
-        book.update(event(Side::Buy, 105, 0)).unwrap();
+        book.update(&event(Side::Buy, 105, 0)).unwrap();
         assert_eq!(book.best_price(), 100);
         assert!(!book.levels.contains_key(&105));
 
         // Удаляем последний уровень
-        book.update(event(Side::Buy, 100, 0)).unwrap();
+        book.update(&event(Side::Buy, 100, 0)).unwrap();
         assert_eq!(book.best_price(), 0);
         assert!(book.levels.is_empty());
     }
@@ -174,10 +174,10 @@ mod tests {
     fn test_evict_extra_levels() {
         let mut book = BookSide::new(Side::Sell, 3);
 
-        book.update(event(Side::Sell, 100, 10)).unwrap();
-        book.update(event(Side::Sell, 105, 10)).unwrap();
-        book.update(event(Side::Sell, 110, 10)).unwrap();
-        book.update(event(Side::Sell, 115, 10)).unwrap(); // должен вызвать eviction
+        book.update(&event(Side::Sell, 100, 10)).unwrap();
+        book.update(&event(Side::Sell, 105, 10)).unwrap();
+        book.update(&event(Side::Sell, 110, 10)).unwrap();
+        book.update(&event(Side::Sell, 115, 10)).unwrap(); // должен вызвать eviction
 
         assert_eq!(book.sorted_prices.len(), 3);
         // Для Sell удаляется самый дорогой
@@ -190,11 +190,11 @@ mod tests {
         let mut book = BookSide::new(Side::Buy, 5);
 
         // Сторона совпадает
-        book.update_or_miss(event(Side::Buy, 50, 5));
+        book.update_or_miss(&event(Side::Buy, 50, 5));
         assert_eq!(book.levels[&50], 5);
 
         // Сторона не совпадает — ничего не делаем
-        book.update_or_miss(event(Side::Sell, 60, 10));
+        book.update_or_miss(&event(Side::Sell, 60, 10));
         assert!(!book.levels.contains_key(&60));
     }
 
@@ -202,9 +202,9 @@ mod tests {
     fn test_best_prices_depth() {
         let mut book = BookSide::new(Side::Buy, 5);
 
-        book.update(event(Side::Buy, 100, 10)).unwrap();
-        book.update(event(Side::Buy, 105, 20)).unwrap();
-        book.update(event(Side::Buy, 110, 5)).unwrap();
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 105, 20)).unwrap();
+        book.update(&event(Side::Buy, 110, 5)).unwrap();
 
         // depth = 2
         let prices: Vec<Price> = book.best_prices(2).copied().collect();
@@ -219,7 +219,7 @@ mod tests {
     fn test_check_side_error() {
         let mut book = BookSide::new(Side::Buy, 5);
 
-        let res = book.update(event(Side::Sell, 100, 10));
+        let res = book.update(&event(Side::Sell, 100, 10));
         assert!(res.is_err());
     }
 
@@ -232,19 +232,19 @@ mod tests {
     #[test]
     fn test_is_empty_after_insert() {
         let mut book = BookSide::new(Side::Buy, 5);
-        book.update(event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
         assert!(!book.is_empty());
     }
 
     #[test]
     fn test_is_empty_after_remove_all() {
         let mut book = BookSide::new(Side::Buy, 5);
-        book.update(event(Side::Buy, 100, 10)).unwrap();
-        book.update(event(Side::Buy, 105, 20)).unwrap();
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 105, 20)).unwrap();
 
         // Удаляем все уровни
-        book.update(event(Side::Buy, 100, 0)).unwrap();
-        book.update(event(Side::Buy, 105, 0)).unwrap();
+        book.update(&event(Side::Buy, 100, 0)).unwrap();
+        book.update(&event(Side::Buy, 105, 0)).unwrap();
 
         assert!(book.is_empty());
     }

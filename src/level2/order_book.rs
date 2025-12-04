@@ -44,7 +44,7 @@ impl OrderBook {
         }
     }
 
-    pub fn update(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    pub fn update(&mut self, event: &LevelUpdated) -> Result<(), Level2Error> {
         check_exchange(&self.exchange, &event.exchange)?;
         check_ticker(&self.ticker, &event.ticker)?;
         match event.side {
@@ -53,7 +53,7 @@ impl OrderBook {
         }
     }
 
-    pub fn update_if_instrument_matches(&mut self, event: LevelUpdated) -> Result<(), Level2Error> {
+    pub fn update_if_instrument_matches(&mut self, event: &LevelUpdated) -> Result<(), Level2Error> {
         if self.ticker == event.ticker && self.exchange == event.exchange {
             match event.side {
                 Side::Buy => self.bids.update(event)?,
@@ -63,7 +63,7 @@ impl OrderBook {
         Ok(())
     }
 
-    pub fn update_or_miss(&mut self, event: LevelUpdated) {
+    pub fn update_or_miss(&mut self, event: &LevelUpdated) {
         if self.ticker == event.ticker && self.exchange == event.exchange {
             match event.side {
                 Side::Buy => self.bids.update_or_miss(event),
@@ -93,8 +93,8 @@ mod tests {
     #[test]
     fn test_insert_bids_and_asks() {
         let mut ob = OrderBook::new("binance", "BTCUSDT", 5);
-        ob.update(event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
-        ob.update(event("binance", "BTCUSDT", Side::Sell, 200, 5)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Sell, 200, 5)).unwrap();
         assert_eq!(ob.bids().best_price(), 100);
         assert_eq!(ob.asks().best_price(), 200);
     }
@@ -102,10 +102,10 @@ mod tests {
     #[test]
     fn test_update_existing_levels() {
         let mut ob = OrderBook::new("binance", "BTCUSDT", 5);
-        ob.update(event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
-        ob.update(event("binance", "BTCUSDT", Side::Buy, 100, 20)).unwrap();
-        ob.update(event("binance", "BTCUSDT", Side::Sell, 200, 5)).unwrap();
-        ob.update(event("binance", "BTCUSDT", Side::Sell, 200, 0)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Buy, 100, 20)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Sell, 200, 5)).unwrap();
+        ob.update(&event("binance", "BTCUSDT", Side::Sell, 200, 0)).unwrap();
         assert_eq!(ob.asks().best_price(), 0);
     }
 
@@ -114,15 +114,15 @@ mod tests {
         let mut ob = OrderBook::new("binance", "BTCUSDT", 5);
 
         // Совпадает инструмент
-        ob.update_if_instrument_matches(event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
+        ob.update_if_instrument_matches(&event("binance", "BTCUSDT", Side::Buy, 100, 10)).unwrap();
         assert_eq!(ob.bids().best_price(), 100);
 
         // Несовпадает тикер
-        ob.update_if_instrument_matches(event("binance", "ETHUSDT", Side::Buy, 150, 5)).unwrap();
+        ob.update_if_instrument_matches(&event("binance", "ETHUSDT", Side::Buy, 150, 5)).unwrap();
         assert_eq!(ob.bids().best_price(), 100);
 
         // Несовпадает биржа
-        ob.update_if_instrument_matches(event("kraken", "BTCUSDT", Side::Buy, 200, 5)).unwrap();
+        ob.update_if_instrument_matches(&event("kraken", "BTCUSDT", Side::Buy, 200, 5)).unwrap();
         assert_eq!(ob.bids().best_price(), 100);
     }
 
@@ -131,11 +131,11 @@ mod tests {
         let mut ob = OrderBook::new("binance", "BTCUSDT", 5);
 
         // Совпадает инструмент
-        ob.update_or_miss(event("binance", "BTCUSDT", Side::Buy, 100, 10));
+        ob.update_or_miss(&&event("binance", "BTCUSDT", Side::Buy, 100, 10));
         assert_eq!(ob.bids().best_price(), 100);
 
         // Несовпадает инструмент, ничего не должно происходить
-        ob.update_or_miss(event("kraken", "BTCUSDT", Side::Buy, 200, 5));
+        ob.update_or_miss(&&event("kraken", "BTCUSDT", Side::Buy, 200, 5));
         assert_eq!(ob.bids().best_price(), 100);
     }
 
@@ -151,11 +151,11 @@ mod tests {
         let mut ob = OrderBook::new("binance", "BTCUSDT", 5);
 
         // Неправильная биржа
-        let err = ob.update(event("kraken", "BTCUSDT", Side::Buy, 100, 10));
+        let err = ob.update(&event("kraken", "BTCUSDT", Side::Buy, 100, 10));
         assert!(err.is_err());
 
         // Неправиль тикер
-        let err = ob.update(event("binance", "ETHUSDT", Side::Buy, 100, 10));
+        let err = ob.update(&event("binance", "ETHUSDT", Side::Buy, 100, 10));
         assert!(err.is_err());
     }
 }
