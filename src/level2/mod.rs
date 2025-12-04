@@ -4,6 +4,7 @@ mod order_book;
 mod level_tick;
 mod book_side;
 mod services;
+mod repo;
 
 pub use order_book::OrderBook;
 

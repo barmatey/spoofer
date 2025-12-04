@@ -34,7 +34,7 @@ impl LevelTicks {
         Ok(())
     }
 
-    pub fn update_or_miss(&mut self, event: LevelUpdated){
+    pub fn update_or_miss(&mut self, event: LevelUpdated) {
         if event.price == self.price && event.timestamp >= self.last_ts {
             self.update(event).unwrap();
         }
@@ -44,7 +44,6 @@ impl LevelTicks {
         &self.ticks
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -95,10 +94,8 @@ mod tests {
     #[test]
     fn test_ticks_wrong_price() {
         let mut lvl = LevelTicks::new(100, 2);
-        let err = lvl.update(make_event(1010, 1, 5)).unwrap_err();
-        match err {
-            Level2Error::EventError { .. } => {}
-        }
+        let err = lvl.update(make_event(1010, 1, 5));
+        assert!(err.is_err());
     }
 
     #[test]
@@ -106,10 +103,9 @@ mod tests {
         let mut lvl = LevelTicks::new(100, 3);
         lvl.update(make_event(100, 2, 5)).unwrap();
 
-        let err = lvl.update(make_event(100, 1, 5)).unwrap_err();
-        match err {
-            Level2Error::EventError{ .. } => {}
-        }
+        let err = lvl.update(make_event(100, 1, 5));
+        assert!(err.is_err());
+
     }
 
     #[test]

@@ -12,6 +12,6 @@ pub type Profit = i64;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Side {
-    Buy,
-    Sell,
+    Buy = 1,
+    Sell = 2,
 }
