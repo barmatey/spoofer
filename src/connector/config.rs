@@ -1,10 +1,11 @@
+use std::sync::Arc;
 use tracing::Level;
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::errors::Error::BuilderError;
 
 #[derive(Debug)]
 pub struct TickerConfig {
-    pub ticker: String,
+    pub ticker: Arc<String>,
     pub price_multiply: f64,
     pub quantity_multiply: f64,
     pub subscribe_trades: bool,

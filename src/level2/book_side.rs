@@ -107,13 +107,14 @@ impl BookSide {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use super::*;
     use crate::level2::LevelUpdated;
 
     fn event(side: Side, price: Price, qty: Quantity) -> LevelUpdated {
         LevelUpdated {
-            exchange: "no_matter".to_string(),
-            ticker: "no_matter".to_string(),
+            exchange: Arc::new("no_matter".to_string()),
+            ticker: Arc::new("no_matter".to_string()),
             side,
             price,
             quantity: qty,

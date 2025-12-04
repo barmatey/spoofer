@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::level2::book_side::BookSide;
 use crate::level2::events::LevelUpdated;
 use crate::level2::Level2Error;
@@ -7,8 +8,8 @@ use crate::shared::Side;
 pub struct OrderBook {
     bids: BookSide,
     asks: BookSide,
-    exchange: String,
-    ticker: String,
+    exchange: Arc<String>,
+    ticker: Arc<String>,
 }
 
 impl OrderBook {
@@ -16,8 +17,8 @@ impl OrderBook {
         Self {
             bids: BookSide::new(Side::Buy, max_depth),
             asks: BookSide::new(Side::Sell, max_depth),
-            exchange: exchange.to_string(),
-            ticker: ticker.to_string(),
+            exchange: Arc::new(exchange.to_string()),
+            ticker: Arc::new(ticker.to_string()),
         }
     }
 
@@ -81,8 +82,8 @@ mod tests {
 
     fn event(exchange: &str, ticker: &str, side: Side, price: u64, qty: u64) -> LevelUpdated {
         LevelUpdated {
-            exchange: exchange.to_string(),
-            ticker: ticker.to_string(),
+            exchange: Arc::new(exchange.to_string()),
+            ticker: Arc::new(ticker.to_string()),
             side,
             price,
             quantity: qty,

@@ -47,6 +47,7 @@ impl LevelTicks {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use super::*;
     use crate::level2::LevelUpdated;
     use crate::shared::Quantity;
@@ -57,8 +58,8 @@ mod tests {
             quantity,
             timestamp,
             side: crate::shared::Side::Buy,
-            ticker: "BTC/USDT".to_string(),
-            exchange: "Binance".to_string(),
+            ticker: Arc::new("BTC/USDT".to_string()),
+            exchange: Arc::new("Binance".to_string()),
         }
     }
 

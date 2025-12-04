@@ -37,8 +37,8 @@ impl<'a> LevelUpdatedRepo<'a> {
 
         for event in self.buffer.iter() {
             insert.write(&(
-                event.exchange.clone(),
-                event.ticker.clone(),
+                event.exchange.to_string(),
+                event.ticker.to_string(),
                 event.side as u8,
                 event.price,
                 event.quantity,

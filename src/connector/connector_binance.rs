@@ -1,7 +1,7 @@
 use crate::connector::errors::{Error, ErrorHandler};
 use reqwest::get;
 use std::collections::HashSet;
-
+use std::sync::Arc;
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::Error::InternalError;
@@ -130,7 +130,7 @@ impl<'a> BinanceUrlBuilder<'a> {
 }
 
 pub struct BinanceConnector {
-    exchange: String,
+    exchange: Arc<String>,
     configs: TickerMap,
     logger: Logger,
     error_handlers: Vec<ErrorHandler>,
@@ -144,7 +144,7 @@ impl BinanceConnector {
                 convert_ticker_into_binance_symbol,
             ),
             logger: Logger::new("binance", config.log_level),
-            exchange: "binance".to_string(),
+            exchange: Arc::new("binance".to_string()),
             error_handlers: config.error_handlers,
         }
     }
@@ -180,8 +180,8 @@ impl BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             let ev = LevelUpdated {
-                exchange: self.exchange.clone(),
-                ticker: ticker_config.ticker.clone(),
+                exchange: Arc::clone(&self.exchange),
+                ticker: Arc::clone(&ticker_config.ticker),
                 side: Side::Buy,
                 price: price as Price,
                 quantity: quantity as Quantity,
@@ -220,8 +220,8 @@ impl BinanceConnector {
         let qty = parse_number(&trade.quantity)? * ticker_config.quantity_multiply;
 
         let event = TradeEvent {
-            ticker: ticker_config.ticker.clone(),
-            exchange: self.exchange.clone(),
+            ticker: Arc::clone(&ticker_config.ticker),
+            exchange: Arc::clone(&self.exchange),
             price: price as Price,
             quantity: qty as Quantity,
             timestamp: trade.event_time,

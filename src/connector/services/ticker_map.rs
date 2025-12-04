@@ -2,13 +2,14 @@ use crate::connector::config::TickerConfig;
 use crate::connector::errors::Error;
 use crate::connector::errors::Error::InternalError;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 type Converter = fn(&str) -> String;
 
 #[derive(Debug)]
 pub struct TickerMap {
     symbols: HashMap<String, usize>,
-    tickers: HashMap<String, usize>,
+    tickers: HashMap<Arc<String>, usize>,
     data: Vec<TickerConfig>,
     converter: Converter,
 }
