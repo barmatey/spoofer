@@ -1,11 +1,12 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::now_timestamp;
 use crate::shared::{Price, TimestampMS};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ArbitrageLeg {
-    pub exchange: String,
-    pub ticker: String,
+    pub exchange: Arc<String>,
+    pub ticker: Arc<String>,
     pub price: Price,
 }
 
@@ -79,13 +80,13 @@ impl<'a> ArbitrageMonitor<'a> {
 
         Some(ArbitrageSignal {
             buy: ArbitrageLeg {
-                exchange: buy_book.exchange().to_string(),
-                ticker: buy_book.ticker().to_string(),
+                exchange: Arc::clone(buy_book.exchange()),
+                ticker: Arc::clone(buy_book.ticker()),
                 price: buy_price,
             },
             sell: ArbitrageLeg {
-                exchange: sell_book.exchange().to_string(),
-                ticker: sell_book.ticker().to_string(),
+                exchange: Arc::clone(sell_book.exchange()),
+                ticker: Arc::clone(sell_book.ticker()),
                 price: sell_price,
             },
             profit_pct,
@@ -103,8 +104,8 @@ mod tests {
 
     fn ev(exchange: &str, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
         LevelUpdated {
-            exchange: exchange.to_string(),
-            ticker: ticker.to_string(),
+            exchange: Arc::new(exchange.to_string()),
+            ticker: Arc::new(ticker.to_string()),
             side,
             price,
             quantity: qty,
@@ -150,8 +151,8 @@ mod tests {
 
         let sig = mon.execute().expect("should detect arbitrage");
 
-        assert_eq!(sig.buy.exchange, "binance");
-        assert_eq!(sig.sell.exchange, "kraken");
+        assert_eq!(*sig.buy.exchange, "binance");
+        assert_eq!(*sig.sell.exchange, "kraken");
         assert_eq!(sig.profit_abs, Some(3.0));
         assert!((sig.profit_pct - 0.03).abs() < 1e-6);
     }
@@ -171,8 +172,8 @@ mod tests {
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
         let sig = mon.execute().expect("should detect arbitrage");
-        assert_eq!(sig.buy.exchange, "kraken");
-        assert_eq!(sig.sell.exchange, "binance");
+        assert_eq!(*sig.buy.exchange, "kraken");
+        assert_eq!(*sig.sell.exchange, "binance");
         assert_eq!(sig.profit_abs, Some(5.0));
         assert!((sig.profit_pct - 0.05).abs() < 1e-6);
     }

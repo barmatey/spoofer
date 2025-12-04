@@ -22,11 +22,11 @@ impl OrderBook {
         }
     }
 
-    pub fn exchange(&self) -> &str{
+    pub fn exchange(&self) -> &Arc<String>{
         &self.exchange
     }
 
-    pub fn ticker(&self) -> &str{
+    pub fn ticker(&self) -> &Arc<String>{
         &self.ticker
     }
 
