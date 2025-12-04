@@ -52,7 +52,7 @@ async fn main() {
                     binance_book.update_if_instrument_matches(&ev).unwrap();
 
                     let signal =
-                        ArbitrageMonitor::new(&kraken_book, &binance_book, 0.002).execute();
+                        ArbitrageMonitor::new(&kraken_book, &binance_book, 0.003).execute();
                     match signal {
                         Some(ev) => println!(
                             "[{}] Buy: {} on {}. Sell: {} on {}. Profit: {}. Timestamp: {}",
