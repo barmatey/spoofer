@@ -28,18 +28,16 @@ async fn main() {
 
     let mut stream = pin!(select(kraken_stream, binance_stream));
 
-    let mut book = OrderBook::new("kraken","btc/usdt", 100);
-    let mut trades = TradeStore::new("kraken","btc/usdt", 100);
+    let mut kraken_book = OrderBook::new("kraken", "btc/usdt", 10);
+    let mut binance_book= OrderBook::new("binance", "btc/usdt", 10);
 
     // 2) читаем его
     while let Some(event) = stream.next().await {
         match event {
-            Event::Trade(x) => {
-                trades.update_if_instrument_matches(x).unwrap();
-                println!("{}", trades.trades().len())
-            }
-            Event::LevelUpdate(y) => {
-                book.update_if_instrument_matches(y).unwrap();
+            Event::Trade(x) => {}
+            Event::LevelUpdate(ev) => {
+                kraken_book.update_if_instrument_matches(ev).unwrap();
+                binance_book.update_if_instrument_matches(ev).unwrap();
             }
         }
     }
