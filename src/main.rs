@@ -18,6 +18,8 @@ mod trade;
 async fn main() {
     let mut builder = ConnectorBuilder::new()
         .add_ticker("btc/usdt", 100, 1_000_000_000)
+        .add_ticker("eth/usdt", 100, 1_000_000_000)
+
         .subscribe_depth(10)
         .subscribe_trades()
         .log_level_info();
@@ -45,7 +47,7 @@ async fn main() {
                 binance_book.update_if_instrument_matches(&ev).unwrap();
             }
         }
-        let signal = ArbitrageMonitor::new(&kraken_book, &binance_book, 0.0001).execute();
+        let signal = ArbitrageMonitor::new(&kraken_book, &binance_book, 0.001).execute();
         match signal {
             Some(ev) => println!(
                 "Buy: {} on {}. Sell: {} on {}. Profit: {}",
