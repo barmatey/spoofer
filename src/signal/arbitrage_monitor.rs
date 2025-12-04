@@ -1,5 +1,6 @@
 use crate::level2::OrderBook;
-use crate::shared::Price;
+use crate::shared::utils::now_timestamp;
+use crate::shared::{Price, TimestampMS};
 
 #[derive(Debug, Clone)]
 pub struct ArbitrageLeg {
@@ -14,6 +15,7 @@ pub struct ArbitrageSignal {
     pub sell: ArbitrageLeg,
     pub profit_pct: f32,
     pub profit_abs: Option<f32>,
+    pub timestamp: TimestampMS,
 }
 
 pub struct ArbitrageMonitor<'a> {
@@ -88,6 +90,7 @@ impl<'a> ArbitrageMonitor<'a> {
             },
             profit_pct,
             profit_abs: Some((sell_price - buy_price) as f32),
+            timestamp: now_timestamp(),
         })
     }
 }
@@ -226,7 +229,6 @@ mod tests {
         // Создаём 2 книги
         let book_a = OrderBook::new("binance", "btc/usdt", 10);
         let mut book_b = OrderBook::new("kraken", "btc/usdt", 10);
-
 
         // book_b имеет только bid-уровень
         book_b
