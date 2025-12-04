@@ -18,10 +18,10 @@ impl<'a> LevelUpdatedRepo<'a> {
         }
     }
 
-    pub fn add_one(&mut self, event: LevelUpdated) {
+    pub fn push(&mut self, event: LevelUpdated) {
         self.buffer.push(event);
     }
-    
+
     pub async fn save_if_full(&mut self)-> Result<(), Level2Error>{
         if self.buffer.len() >= self.buffer_size {
             self.save().await?

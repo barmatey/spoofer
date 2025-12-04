@@ -87,7 +87,7 @@ async fn main() {
                     }
                 }
 
-                depth_repo.add_one(ev);
+                depth_repo.push(ev);
                 depth_repo.save_if_full().await.unwrap();
             }
         }
