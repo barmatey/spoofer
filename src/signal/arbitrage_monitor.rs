@@ -175,9 +175,9 @@ mod tests {
         let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
 
         // A: ask = 100
-        a.update(ev("binance", "BTC/USDT", Side::Sell, 100, 1)).unwrap();
+        a.update(ev("binance", "BTC/USDT", Side::Sell, 10_000, 1)).unwrap();
         // B: bid = 100.05
-        b.update(ev("kraken", "BTC/USDT", Side::Buy, 10005, 1)).unwrap(); // <--- если Price = 10000 => 100.00
+        b.update(ev("kraken", "BTC/USDT", Side::Buy, 10_005, 1)).unwrap(); // <--- если Price = 10000 => 100.00
 
         // threshold = 0.001 = 0.1%
         let mon = ArbitrageMonitor::new(&a, &b, 0.001);
