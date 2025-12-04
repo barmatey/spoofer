@@ -17,7 +17,12 @@ mod trade;
 #[tokio::main]
 async fn main() {
     let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
-    let tickers = [("btc/usdt", 100, 1_000_000)];
+    let tickers = [
+        ("btc/usdt", 100, 1_000_000),
+        ("eth/usdt", 100, 10_000),
+        ("sol/usdt", 1000, 10_000),
+        ("bnb/usdt", 1000, 10_000),
+    ];
 
     for (ticker, p_mult, q_mult) in tickers {
         builder = builder.add_ticker(ticker, p_mult, q_mult);
@@ -25,8 +30,8 @@ async fn main() {
 
     let mut books = vec![];
     for (ticker, _, _) in tickers {
-        let mut kraken_book = OrderBook::new("kraken", ticker, 10);
-        let mut binance_book = OrderBook::new("binance", ticker, 10);
+        let kraken_book = OrderBook::new("kraken", ticker, 10);
+        let binance_book = OrderBook::new("binance", ticker, 10);
         books.push((kraken_book, binance_book));
     }
 
@@ -47,7 +52,7 @@ async fn main() {
                     binance_book.update_if_instrument_matches(&ev).unwrap();
 
                     let signal =
-                        ArbitrageMonitor::new(&kraken_book, &binance_book, 0.001).execute();
+                        ArbitrageMonitor::new(&kraken_book, &binance_book, 0.002).execute();
                     match signal {
                         Some(ev) => println!(
                             "[{}] Buy: {} on {}. Sell: {} on {}. Profit: {}. Timestamp: {}",
