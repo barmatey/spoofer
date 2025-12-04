@@ -28,7 +28,7 @@ async fn main() {
     let kraken_stream = pin!(kraken.stream().await.unwrap());
     let mut binance_stream = pin!(binance.stream().await.unwrap());
 
-    // let mut stream = pin!(select(kraken_stream, binance_stream));
+    let mut stream = pin!(select(kraken_stream, binance_stream));
 
     let mut kraken_book = OrderBook::new("kraken", "btc/usdt", 10);
     let mut binance_book = OrderBook::new("binance", "btc/usdt", 10);
@@ -36,7 +36,7 @@ async fn main() {
     let mut last_display = Instant::now();
 
     // 2) читаем события
-    while let Some(event) = binance_stream.next().await {
+    while let Some(event) = stream.next().await {
         match event {
             Event::Trade(_) => {}
             Event::LevelUpdate(ev) => {
@@ -46,8 +46,8 @@ async fn main() {
         }
 
         // Обновляем таблицу каждые 200 мс
-        if last_display.elapsed() > Duration::from_millis(200) {
-            display_books(&[&kraken_book, &binance_book]);
+        if last_display.elapsed() > Duration::from_millis(10) {
+            display_books(&[&kraken_book, &binance_book], 2);
             last_display = Instant::now();
         }
     }
