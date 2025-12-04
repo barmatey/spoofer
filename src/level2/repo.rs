@@ -1,6 +1,7 @@
 use clickhouse::insert::Insert;
 use crate::level2::{Level2Error, LevelUpdated};
 use clickhouse::Client;
+use clickhouse::error::Error;
 
 pub struct LevelUpdatedRepo<'a> {
     client:&'a Client,
@@ -50,4 +51,23 @@ impl<'a> LevelUpdatedRepo<'a> {
         self.buffer.clear();
     Ok(())
     }
+}
+
+
+pub async fn create_level_updates_table(client: &Client, db_name: &str) -> Result<(), Error> {
+    let query = format!(
+        r#"
+        CREATE TABLE IF NOT EXISTS {}.level_updates (
+            exchange String,
+            ticker String,
+            side UInt8,
+            price UInt64,
+            quantity UInt64,
+            timestamp UInt64
+        ) ENGINE = MergeTree()
+        ORDER BY (exchange, ticker, timestamp)
+    "#,
+        db_name
+    );
+    client.query(&query).execute().await
 }
