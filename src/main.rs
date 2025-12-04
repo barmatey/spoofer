@@ -1,10 +1,11 @@
 use crate::connector::{Connector, ConnectorBuilder, Event};
 use crate::level2::{display_books, OrderBook};
+use crate::shared::utils::format_price;
+use crate::signal::ArbitrageMonitor;
 use crate::trade::TradeStore;
 use futures_util::{stream::select, StreamExt};
 use std::pin::pin;
 use std::time::{Duration, Instant};
-use crate::signal::ArbitrageMonitor;
 
 mod connector;
 mod shared;
@@ -26,7 +27,7 @@ async fn main() {
 
     // 1) создаём стримы
     let kraken_stream = pin!(kraken.stream().await.unwrap());
-    let mut binance_stream = pin!(binance.stream().await.unwrap());
+    let binance_stream = pin!(binance.stream().await.unwrap());
 
     let mut stream = pin!(select(kraken_stream, binance_stream));
 
@@ -44,11 +45,17 @@ async fn main() {
                 binance_book.update_if_instrument_matches(&ev).unwrap();
             }
         }
-
-        // Обновляем таблицу каждые 200 мс
-        if last_display.elapsed() > Duration::from_millis(10) {
-            display_books(&[&kraken_book, &binance_book], 2);
-            last_display = Instant::now();
+        let signal = ArbitrageMonitor::new(&kraken_book, &binance_book, 0.0001).execute();
+        match signal {
+            Some(ev) => println!(
+                "Buy: {} on {}. Sell: {} on {}. Profit: {}",
+                format_price(ev.buy.price, 2),
+                ev.buy.exchange,
+                format_price(ev.sell.price, 2),
+                ev.sell.exchange,
+                ev.profit_pct
+            ),
+            None => {}
         }
     }
 }
