@@ -35,7 +35,7 @@ impl BookSide {
         if price == self.best_price {
             self.best_price = match self.side {
                 Side::Buy => self.sorted_prices.iter().rev().next().copied().unwrap_or(0),
-                Side::Sell => self.sorted_prices.iter().next().copied().unwrap_or(0),
+                Side::Sell => self.sorted_prices.iter().next().copied().unwrap_or(Price::MAX),
             };
         }
     }
@@ -101,7 +101,7 @@ impl BookSide {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.levels.len() == 0
+        self.sorted_prices.len() == 0
     }
 }
 
@@ -248,5 +248,57 @@ mod tests {
 
         assert!(book.is_empty());
     }
+
+    #[test]
+    fn test_best_price_after_multiple_removes() {
+        let mut book = BookSide::new(Side::Buy, 5);
+
+        // Вставляем несколько уровней
+        book.update(&event(Side::Buy, 100, 10)).unwrap();
+        book.update(&event(Side::Buy, 105, 20)).unwrap();
+        book.update(&event(Side::Buy, 110, 15)).unwrap();
+
+        // Проверяем начальный best_price
+        assert_eq!(book.best_price(), 110);
+
+        // Удаляем текущий лучший уровень
+        book.update(&event(Side::Buy, 110, 0)).unwrap();
+        assert_eq!(book.best_price(), 105);
+
+        // Удаляем следующий лучший уровень
+        book.update(&event(Side::Buy, 105, 0)).unwrap();
+        assert_eq!(book.best_price(), 100);
+
+        // Удаляем последний уровень
+        book.update(&event(Side::Buy, 100, 0)).unwrap();
+        assert_eq!(book.best_price(), 0);
+        assert!(book.levels.is_empty());
+    }
+    #[test]
+    fn test_best_price_sell_after_multiple_removes() {
+        let mut book = BookSide::new(Side::Sell, 5);
+
+        // Вставляем несколько уровней
+        book.update(&event(Side::Sell, 200, 10)).unwrap();
+        book.update(&event(Side::Sell, 180, 20)).unwrap();
+        book.update(&event(Side::Sell, 190, 15)).unwrap();
+
+        // Проверяем начальный best_price (для Sell — минимальная цена)
+        assert_eq!(book.best_price(), 180);
+
+        // Удаляем текущий лучший уровень (минимальный)
+        book.update(&event(Side::Sell, 180, 0)).unwrap();
+        assert_eq!(book.best_price(), 190);
+
+        // Удаляем следующий лучший уровень
+        book.update(&event(Side::Sell, 190, 0)).unwrap();
+        assert_eq!(book.best_price(), 200);
+
+        // Удаляем последний уровень
+        book.update(&event(Side::Sell, 200, 0)).unwrap();
+        assert_eq!(book.best_price(), Price::MAX);
+        assert!(book.levels.is_empty());
+    }
+
 
 }
