@@ -4,7 +4,7 @@ use clickhouse::error::Error;
 use clickhouse::Client;
 use tracing::Level;
 
-pub async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
+async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     let query_check = format!(
         "SELECT name FROM system.databases WHERE name = '{}'",
         db_name
@@ -13,7 +13,10 @@ pub async fn create_database(client: &Client, logger: &Logger, db_name: &str) ->
     let existing: Vec<String> = client.query(&query_check).fetch_all().await?;
 
     if existing.is_empty() {
-        logger.info(&format!("Database '{}' does not exist. Creating...", db_name));
+        logger.info(&format!(
+            "Database '{}' does not exist. Creating...",
+            db_name
+        ));
         let query_create = format!("CREATE DATABASE {}", db_name);
         client.query(&query_create).execute().await?;
         logger.info(&format!("Database '{}' created", db_name));
@@ -24,9 +27,7 @@ pub async fn create_database(client: &Client, logger: &Logger, db_name: &str) ->
     Ok(())
 }
 
-
-
-pub async fn drop_all_tables(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
+async fn drop_all_tables(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     logger.info(&format!("Drop all tables in database {}", db_name));
 
     let tables: Vec<String> = client
@@ -43,14 +44,58 @@ pub async fn drop_all_tables(client: &Client, logger: &Logger, db_name: &str) ->
     Ok(())
 }
 
-
-
-pub async fn init_database(client: &Client, db_name: &str, recreate: bool) -> Result<(), Error> {
+async fn init_database(client: &Client, db_name: &str, recreate: bool) -> Result<(), Error> {
     let logger = Logger::new("initialisation", Level::INFO);
     create_database(client, &logger, db_name).await?;
-    if recreate{
+    if recreate {
         drop_all_tables(client, &logger, db_name).await?;
     }
     create_level_updates_table(client, &logger, db_name).await?;
     Ok(())
+}
+
+pub struct DatabaseService {
+    url: String,
+    password: String,
+    user: String,
+    db_name: String,
+}
+
+impl DatabaseService {
+    pub fn default() -> Self {
+        Self {
+            url: "".to_string(),
+            password: "".to_string(),
+            user: "".to_string(),
+            db_name: "".to_string(),
+        }
+    }
+    pub fn with_url(mut self, url: &str) -> Self {
+        self.url = url.to_string();
+        self
+    }
+
+    pub fn with_password(mut self, password: &str) -> Self {
+        self.password = password.to_string();
+        self
+    }
+
+    pub fn with_user(mut self, user: &str) -> Self {
+        self.user = user.to_string();
+        self
+    }
+
+    pub fn with_database(mut self, db_name: &str) -> Self {
+        self.db_name = db_name.to_string();
+        self
+    }
+
+    pub async fn build(self) -> Result<Client, Error> {
+        let client = Client::default()
+            .with_user(&self.user)
+            .with_password(&self.password)
+            .with_url(&self.url);
+        init_database(&client, &self.db_name, true).await?;
+        Ok(client.with_database(&self.db_name))
+    }
 }

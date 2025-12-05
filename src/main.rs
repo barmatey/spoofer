@@ -6,7 +6,7 @@ mod signal;
 mod trade;
 
 use crate::connector::{Event, Exchange, StreamConnector};
-use crate::db::init_database;
+use crate::db::{DatabaseService};
 use crate::level2::LevelUpdatedRepo;
 use clickhouse::Client;
 use futures_util::StreamExt;
@@ -35,12 +35,14 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
 }
 
 async fn saver(mut rx_events: broadcast::Receiver<Event>) {
-    let client = Client::default()
+    let client = DatabaseService::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
-        .with_password("");
-    init_database(&client, "spoofer", true).await.unwrap();
-    let client = client.with_database("spoofer");
+        .with_password("")
+        .with_database("spoofer")
+        .build()
+        .await
+        .unwrap();
 
     let buffer_size = 1_000;
     let mut levels = Vec::with_capacity(buffer_size);
