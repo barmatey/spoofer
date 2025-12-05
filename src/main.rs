@@ -92,7 +92,6 @@ async fn main() {
     let handle_saver = tokio::spawn(saver(tx_events.subscribe()));
     let handle_processor = tokio::spawn(processor(tx_events.subscribe()));
 
-    // ждем завершения любой задачи
     tokio::select! {
         res = handle_stream => {
             if let Err(e) = res {
