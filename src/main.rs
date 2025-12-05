@@ -59,12 +59,16 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 
     let client = client.with_database("spoofer");
     let depth_repo = LevelUpdatedRepo::new(&client);
+    
+    let mut l2_buffer = Vec::with_capacity(1_000);
 
     while let Ok(ev) = rx_events.recv().await {
         match ev {
             Event::LevelUpdate(v) => {
-                if let Err(e) = depth_repo.save(&[v]).await {
-                    eprintln!("Saver error: {:?}", e);
+               l2_buffer.push(v);
+                if l2_buffer.len() >= 1_000{
+                    depth_repo.save(&l2_buffer).await.unwrap();
+                    l2_buffer.clear();
                 }
             }
             Event::Trade(_) => {}
