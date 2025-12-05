@@ -1,18 +1,17 @@
 mod connector;
+mod db;
+mod level2;
 mod shared;
 mod signal;
-mod level2;
 mod trade;
-mod db;
 
 use crate::connector::{Connector, ConnectorBuilder, Event};
 use crate::db::init_database;
-use crate::level2::{LevelUpdated, LevelUpdatedRepo};
+use crate::level2::{LevelUpdatedRepo};
 use clickhouse::Client;
 use futures_util::StreamExt;
 use pin_utils::pin_mut;
 use tokio::sync::broadcast;
-
 
 async fn stream(tx_events: broadcast::Sender<Event>) {
     let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
@@ -56,22 +55,24 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .with_user("default")
         .with_password("");
     init_database(&client, "spoofer", true).await.unwrap();
-
     let client = client.with_database("spoofer");
-    let depth_repo = LevelUpdatedRepo::new(&client);
     
-    let mut l2_buffer = Vec::with_capacity(1_000);
+    let buffer_size = 1_000;
+    let mut levels = Vec::with_capacity(buffer_size);
+    let mut trades = Vec::with_capacity(buffer_size);
 
     while let Ok(ev) = rx_events.recv().await {
         match ev {
             Event::LevelUpdate(v) => {
-               l2_buffer.push(v);
-                if l2_buffer.len() >= 1_000{
-                    depth_repo.save(&l2_buffer).await.unwrap();
-                    l2_buffer.clear();
+                levels.push(v);
+                if levels.len() >= buffer_size {
+                    LevelUpdatedRepo::new(&client).save(&levels).await.unwrap();
+                    levels.clear();
                 }
             }
-            Event::Trade(_) => {}
+            Event::Trade(v) => {
+                trades.push(v);
+            }
         }
     }
 }
@@ -92,9 +93,9 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
 async fn main() {
     let (tx_events, _) = broadcast::channel::<Event>(1000);
 
-    let handle_stream = tokio::task::spawn_local(stream(tx_events.clone()));
     let handle_saver = tokio::spawn(saver(tx_events.subscribe()));
     let handle_processor = tokio::spawn(processor(tx_events.subscribe()));
+    let handle_stream = tokio::task::spawn_local(stream(tx_events));
 
     tokio::select! {
         res = handle_stream => {
