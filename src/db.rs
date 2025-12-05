@@ -54,14 +54,14 @@ async fn init_database(client: &Client, db_name: &str, recreate: bool) -> Result
     Ok(())
 }
 
-pub struct DatabaseService {
+pub struct DatabaseClient {
     url: String,
     password: String,
     user: String,
     db_name: String,
 }
 
-impl DatabaseService {
+impl DatabaseClient {
     pub fn default() -> Self {
         Self {
             url: "".to_string(),
