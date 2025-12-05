@@ -1,12 +1,10 @@
 use crate::connector::{Connector, ConnectorBuilder, Event};
-use crate::level2::{display_books, LevelUpdatedRepo, OrderBook};
+use crate::level2::{LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::format_price;
 use crate::signal::ArbitrageMonitor;
-use crate::trade::TradeStore;
 use clickhouse::Client;
 use futures_util::{stream::select, StreamExt};
 use std::pin::pin;
-use std::time::{Duration, Instant};
 use crate::db::init_database;
 
 mod connector;
@@ -18,20 +16,13 @@ mod trade;
 
 mod db;
 
-#[tokio::main]
-async fn main() {
-    // Repos
+async fn stream(){
     let client = Client::default()
         .with_url("http://127.0.0.1:8123") // порт HTTP ClickHouse по умолчанию
         .with_user("default")
         .with_password("")
-        .with_database("default");
-
-    init_database(&client, "default").await.unwrap();
-
-    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
-
-
+        .with_database("spoofer");
+    
     let mut builder = ConnectorBuilder::new()
         .subscribe_depth(10)
         .log_level_debug();
@@ -57,12 +48,15 @@ async fn main() {
     let kraken = builder.build_kraken_connector().unwrap();
     let binance = builder.build_binance_connector().unwrap();
     let kraken_stream = pin!(kraken.stream().await.unwrap());
-    let mut binance_stream = pin!(binance.stream().await.unwrap());
-    // let mut stream = pin!(select(kraken_stream, binance_stream));
+    let binance_stream = pin!(binance.stream().await.unwrap());
+    let mut stream = pin!(select(kraken_stream, binance_stream));
+
+    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
+
 
 
     // 2) читаем события
-    while let Some(event) = binance_stream.next().await {
+    while let Some(event) = stream.next().await {
         match event {
             Event::Trade(_) => {}
             Event::LevelUpdate(ev) => {
@@ -87,9 +81,22 @@ async fn main() {
                     }
                 }
 
-                depth_repo.push(ev);
                 depth_repo.save_if_full().await.unwrap();
             }
         }
     }
+}
+
+#[tokio::main]
+async fn main() {
+    // Repos
+    let client = Client::default()
+        .with_url("http://127.0.0.1:8123") // порт HTTP ClickHouse по умолчанию
+        .with_user("default")
+        .with_password("");
+
+    init_database(&client, "spoofer", true).await.unwrap();
+    
+
+
 }

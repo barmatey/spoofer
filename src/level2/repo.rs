@@ -1,16 +1,42 @@
-use clickhouse::insert::Insert;
 use crate::level2::{Level2Error, LevelUpdated};
-use clickhouse::Client;
+use crate::shared::logger::Logger;
 use clickhouse::error::Error;
+use clickhouse::insert::Insert;
+use clickhouse::Client;
+use serde::Serialize;
+use std::sync::Arc;
+
+#[derive(clickhouse::Row, Serialize)]
+struct LevelUpdateRow {
+    exchange: String,
+    ticker: String,
+    side: u8,
+    price: u64,
+    quantity: u64,
+    timestamp: u64,
+}
+
+impl LevelUpdateRow {
+    pub fn from_level_updated(ev: &LevelUpdated) -> Self {
+        Self {
+            exchange: ev.exchange.to_string(),
+            ticker: ev.ticker.to_string(),
+            side: ev.side as u8,
+            price: ev.price,
+            quantity: ev.quantity,
+            timestamp: ev.timestamp,
+        }
+    }
+}
 
 pub struct LevelUpdatedRepo<'a> {
-    client:&'a Client,
+    client: &'a Client,
     buffer_size: usize,
     buffer: Vec<LevelUpdated>,
 }
 
 impl<'a> LevelUpdatedRepo<'a> {
-    pub fn new(client:&'a Client, buffer_size: usize) -> Self {
+    pub fn new(client: &'a Client, buffer_size: usize) -> Self {
         Self {
             client,
             buffer_size,
@@ -22,7 +48,7 @@ impl<'a> LevelUpdatedRepo<'a> {
         self.buffer.push(event);
     }
 
-    pub async fn save_if_full(&mut self)-> Result<(), Level2Error>{
+    pub async fn save_if_full(&mut self) -> Result<(), Level2Error> {
         if self.buffer.len() >= self.buffer_size {
             self.save().await?
         }
@@ -33,28 +59,26 @@ impl<'a> LevelUpdatedRepo<'a> {
         if self.buffer.is_empty() {
             return Ok(());
         }
-        let mut insert: Insert<(String, String, u8, u64, u64, u64)> =
-            self.client.insert("level_updates").await?;
+        let mut insert: Insert<LevelUpdateRow> = self.client.insert("level_updates").await?;
 
         for event in self.buffer.iter() {
-            insert.write(&(
-                event.exchange.to_string(),
-                event.ticker.to_string(),
-                event.side as u8,
-                event.price,
-                event.quantity,
-                event.timestamp,
-            )).await?;
+            let row = LevelUpdateRow::from_level_updated(event);
+            insert.write(&row).await?;
         }
 
         insert.end().await?;
         self.buffer.clear();
-    Ok(())
+        Ok(())
     }
 }
 
+pub async fn create_level_updates_table(
+    client: &Client,
+    logger: &Logger,
+    db_name: &str,
+) -> Result<(), Error> {
+    logger.info("Create level updated table");
 
-pub async fn create_level_updates_table(client: &Client, db_name: &str) -> Result<(), Error> {
     let query = format!(
         r#"
         CREATE TABLE IF NOT EXISTS {}.level_updates (
