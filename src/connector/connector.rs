@@ -16,7 +16,7 @@ pub enum Event {
 pub type StreamBuffer = VecDeque<Event>;
 
 pub trait Connector {
-    async fn stream(&self) -> Result<impl Stream<Item = Event>, Error>;
+    async fn stream(self) -> Result<impl Stream<Item = Event>, Error>;
 }
 
 pub(crate) trait ConnectorInternal {
@@ -28,7 +28,7 @@ pub(crate) trait ConnectorInternal {
 }
 
 impl<T: ConnectorInternal> Connector for T {
-    async fn stream(&self) -> Result<impl Stream<Item = Event>, Error> {
+    async fn stream(self) -> Result<impl Stream<Item = Event>, Error> {
         let (write, read) = self.connect().await?;
         let ws = websocket_stream(write, read);
         let mut buffer: StreamBuffer = VecDeque::new();

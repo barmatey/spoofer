@@ -5,47 +5,33 @@ mod shared;
 mod signal;
 mod trade;
 
-use crate::connector::{Connector, ConnectorBuilder, Event};
+use crate::connector::{Event, StreamConnector};
 use crate::db::init_database;
-use crate::level2::{LevelUpdatedRepo};
+use crate::level2::LevelUpdatedRepo;
 use clickhouse::Client;
 use futures_util::StreamExt;
-use pin_utils::pin_mut;
 use tokio::sync::broadcast;
 
+static TICKERS: [(&'static str, u32, u32); 4] = [
+    ("btc/usdt", 100, 1_000_000),
+    ("eth/usdt", 100, 10_000),
+    ("sol/usdt", 1000, 10_000),
+    ("bnb/usdt", 1000, 10_000),
+];
+
 async fn stream(tx_events: broadcast::Sender<Event>) {
-    let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
+    let mut connector = StreamConnector::new()
+        .subscribe_depth(10)
+        .subscribe_trades()
+        .log_level_info();
 
-    let tickers = [
-        ("btc/usdt", 100, 1_000_000),
-        ("eth/usdt", 100, 10_000),
-        ("sol/usdt", 1000, 10_000),
-        ("bnb/usdt", 1000, 10_000),
-    ];
-
-    for (ticker, p_mult, q_mult) in tickers {
-        builder = builder.add_ticker(ticker, p_mult, q_mult);
+    for (ticker, p_mult, q_mult) in TICKERS {
+        connector = connector.add_ticker(ticker, p_mult, q_mult);
     }
 
-    let kraken = builder.build_kraken_connector().unwrap();
-    let binance = builder.build_binance_connector().unwrap();
-
-    let kraken_stream = kraken.stream().await.unwrap();
-    let binance_stream = binance.stream().await.unwrap();
-
-    pin_mut!(kraken_stream);
-    pin_mut!(binance_stream);
-
-    loop {
-        tokio::select! {
-            Some(event) = kraken_stream.next() => {
-                let _ = tx_events.send(event);
-            }
-            Some(event) = binance_stream.next() => {
-                let _ = tx_events.send(event);
-            }
-            else => break,
-        }
+    let mut stream = connector.connect().await.unwrap();
+    while let Some(event) = stream.next().await {
+        let _ = tx_events.send(event);
     }
 }
 
@@ -56,7 +42,7 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .with_password("");
     init_database(&client, "spoofer", true).await.unwrap();
     let client = client.with_database("spoofer");
-    
+
     let buffer_size = 1_000;
     let mut levels = Vec::with_capacity(buffer_size);
     let mut trades = Vec::with_capacity(buffer_size);

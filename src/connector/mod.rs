@@ -10,4 +10,4 @@ mod services;
 pub use connector::{Connector, Event};
 pub use connector_binance::{BinanceConnector};
 pub use connector_kraken::{KrakenConnector};
-pub use builder::ConnectorBuilder;
+pub use builder::StreamConnector;

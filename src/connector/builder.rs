@@ -1,6 +1,9 @@
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
+use crate::connector::errors::Error::BuilderError;
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, Connector, Event, KrakenConnector};
+use futures_util::stream::{self, Select, Stream, StreamExt};
+use std::pin::Pin;
 use std::sync::Arc;
 use tracing::Level;
 
@@ -11,7 +14,7 @@ pub enum Exchange {
     All = 2,
 }
 
-pub struct ConnectorBuilder {
+pub struct StreamConnector {
     subscribe_trades: bool,
     subscribe_depth: bool,
     depth_value: u8,
@@ -21,7 +24,7 @@ pub struct ConnectorBuilder {
     log_level: Level,
 }
 
-impl ConnectorBuilder {
+impl StreamConnector {
     pub fn new() -> Self {
         Self {
             subscribe_trades: false,
@@ -29,9 +32,20 @@ impl ConnectorBuilder {
             depth_value: 0,
             tickers: vec![],
             error_handlers: vec![],
-            exchanges: vec![],
+            exchanges: vec![Exchange::All],
             log_level: Level::INFO,
         }
+    }
+    fn validate_exchanges(&self) -> Result<(), Error> {
+        if self.exchanges.len() == 0 {
+            Err(BuilderError("At least one exchange required".to_string()))?;
+        }
+        Ok(())
+    }
+
+    fn validate(&self) -> Result<(), Error> {
+        self.validate_exchanges()?;
+        Ok(())
     }
     pub fn exchanges(mut self, value: &[Exchange]) -> Self {
         self.exchanges = value.to_vec();
@@ -101,29 +115,31 @@ impl ConnectorBuilder {
         Ok(config)
     }
 
-    pub async fn build(self) -> Result<impl futures::Stream<Item = Event>, Error> {
+    pub async fn connect(self) -> Result<Pin<Box<dyn Stream<Item = Event>>>, Error> {
+        self.validate()?;
 
-        let mut streams = vec![];
+        let mut merged: Option<Pin<Box<dyn Stream<Item = Event>>>> = None;
 
+        // Kraken
         if self.exchanges.contains(&Exchange::Kraken) || self.exchanges.contains(&Exchange::All) {
             let config = self.build_config()?;
-            let kraken = KrakenConnector::new(config);
-            streams.push(kraken.stream().await?);
+            let kraken_stream = KrakenConnector::new(config).stream().await?;
+            merged = Some(match merged {
+                Some(prev) => Box::pin(stream::select(prev, kraken_stream)),
+                None => Box::pin(kraken_stream),
+            });
         }
 
+        // Binance
         if self.exchanges.contains(&Exchange::Binance) || self.exchanges.contains(&Exchange::All) {
             let config = self.build_config()?;
-            let binance = BinanceConnector::new(config);
-            streams.push(binance.stream().await?);
+            let binance_stream = BinanceConnector::new(config).stream().await?;
+            merged = Some(match merged {
+                Some(prev) => Box::pin(stream::select(prev, binance_stream)),
+                None => Box::pin(binance_stream),
+            });
         }
 
-        // Объединяем все выбранные потоки
-        let mut merged = futures_util::stream::empty();
-        for s in streams {
-            merged = futures_util::stream::select(merged, s);
-        }
-
-        Ok(merged)
+        Ok(merged.unwrap())
     }
-
 }
