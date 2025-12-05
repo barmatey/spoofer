@@ -5,7 +5,7 @@ mod shared;
 mod signal;
 mod trade;
 
-use crate::connector::{Event, StreamConnector};
+use crate::connector::{Event, Exchange, StreamConnector};
 use crate::db::init_database;
 use crate::level2::LevelUpdatedRepo;
 use clickhouse::Client;
@@ -20,16 +20,15 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
 ];
 
 async fn stream(tx_events: broadcast::Sender<Event>) {
-    let mut connector = StreamConnector::new()
+    let mut stream = StreamConnector::new()
+        .exchanges(&[Exchange::All])
+        .tickers(&TICKERS)
         .subscribe_depth(10)
         .subscribe_trades()
-        .log_level_info();
-
-    for (ticker, p_mult, q_mult) in TICKERS {
-        connector = connector.add_ticker(ticker, p_mult, q_mult);
-    }
-
-    let mut stream = connector.connect().await.unwrap();
+        .log_level_info()
+        .connect()
+        .await
+        .unwrap();
     while let Some(event) = stream.next().await {
         let _ = tx_events.send(event);
     }

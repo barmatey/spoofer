@@ -2,7 +2,7 @@ use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValida
 use crate::connector::errors::Error::BuilderError;
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::{BinanceConnector, Connector, Event, KrakenConnector};
-use futures_util::stream::{self, Select, Stream, StreamExt};
+use futures_util::stream::{self, Stream};
 use std::pin::Pin;
 use std::sync::Arc;
 use tracing::Level;
@@ -18,7 +18,7 @@ pub struct StreamConnector {
     subscribe_trades: bool,
     subscribe_depth: bool,
     depth_value: u8,
-    tickers: Vec<(String, f64, f64)>,
+    tickers: Vec<(String, u32, u32)>,
     exchanges: Vec<Exchange>,
     error_handlers: Vec<ErrorHandler>,
     log_level: Level,
@@ -43,8 +43,16 @@ impl StreamConnector {
         Ok(())
     }
 
+    fn validate_tickers(&self) -> Result<(), Error> {
+        if self.tickers.len() == 0 {
+            Err(BuilderError("At least one ticker required".to_string()))?;
+        }
+        Ok(())
+    }
+
     fn validate(&self) -> Result<(), Error> {
         self.validate_exchanges()?;
+        self.validate_tickers()?;
         Ok(())
     }
     pub fn exchanges(mut self, value: &[Exchange]) -> Self {
@@ -52,9 +60,11 @@ impl StreamConnector {
         self
     }
 
-    pub fn add_ticker(mut self, ticker: &str, price_multiply: u32, quantity_multiply: u32) -> Self {
-        self.tickers
-            .push((ticker.to_string(), price_multiply as f64, quantity_multiply as f64));
+    pub fn tickers(mut self, tickers: &[(&str, u32, u32)]) -> Self {
+        self.tickers = tickers
+            .iter()
+            .map(|x| (x.0.to_string(), x.1, x.2))
+            .collect();
         self
     }
 
@@ -98,8 +108,8 @@ impl StreamConnector {
         for (ticker, price_multiply, quantity_multiply) in self.tickers.iter() {
             let tc = TickerConfig {
                 ticker: Arc::new(ticker.clone()),
-                price_multiply: *price_multiply,
-                quantity_multiply: *quantity_multiply,
+                price_multiply: *price_multiply as f64,
+                quantity_multiply: *quantity_multiply as f64,
                 subscribe_trades: self.subscribe_trades,
                 subscribe_depth: self.subscribe_depth,
                 depth_value: self.depth_value,
