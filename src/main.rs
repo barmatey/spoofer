@@ -20,7 +20,6 @@ mod trade;
 mod db;
 
 async fn stream(tx_events: mpsc::Sender<Event>) {
-    // Настройка коннекторов
     let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
 
     // Тикеры
@@ -61,16 +60,18 @@ async fn stream(tx_events: mpsc::Sender<Event>) {
 }
 
 async fn saver(rx_events: mpsc::Receiver<Event>) {
+    // Database initialisation
     let client = Client::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
         .with_password("");
-
     init_database(&client, "spoofer", true).await.unwrap();
-    let client = client.with_database("spoofer");
 
+    // Repositories
+    let client = client.with_database("spoofer");
     let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
 
+    // Read & Save
     let mut rx_events = rx_events;
     while let Some(ev) = rx_events.recv().await {
         match ev {
