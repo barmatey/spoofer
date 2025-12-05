@@ -52,9 +52,9 @@ impl StreamConnector {
         self
     }
 
-    pub fn add_ticker(mut self, ticker: &str, price_mult: u32, quantity_mult: u32) -> Self {
+    pub fn add_ticker(mut self, ticker: &str, price_multiply: u32, quantity_multiply: u32) -> Self {
         self.tickers
-            .push((ticker.to_string(), price_mult as f64, quantity_mult as f64));
+            .push((ticker.to_string(), price_multiply as f64, quantity_multiply as f64));
         self
     }
 
