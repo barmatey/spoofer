@@ -7,7 +7,7 @@ use futures::Stream;
 use futures_util::StreamExt;
 use std::collections::VecDeque;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Event {
     Trade(TradeEvent),
     LevelUpdate(LevelUpdated),
