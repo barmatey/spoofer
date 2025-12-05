@@ -21,9 +21,7 @@ mod db;
 
 async fn stream(tx_events: mpsc::Sender<Event>) {
     // Настройка коннекторов
-    let mut builder = ConnectorBuilder::new()
-        .subscribe_depth(10)
-        .log_level_debug();
+    let mut builder = ConnectorBuilder::new().subscribe_depth(10).log_level_info();
 
     // Тикеры
     let tickers = [
@@ -69,20 +67,16 @@ async fn saver(rx_events: mpsc::Receiver<Event>) {
         .with_password("");
 
     init_database(&client, "spoofer", true).await.unwrap();
-
     let client = client.with_database("spoofer");
 
-    let mut repo = LevelUpdatedRepo::new(&client, 1_000);
+    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
 
-    // Читаем события и сохраняем
     let mut rx_events = rx_events;
     while let Some(ev) = rx_events.recv().await {
         match ev {
             Event::LevelUpdate(v) => {
-                repo.push(v);
-                if let Err(e) = repo.save_if_full().await {
-                    eprintln!("Ошибка при сохранении в ClickHouse: {:?}", e);
-                }
+                depth_repo.push(v);
+                depth_repo.save_if_full().await.unwrap();
             }
             Event::Trade(v) => {}
         }
@@ -100,14 +94,21 @@ async fn main() {
     let local = LocalSet::new();
     local
         .run_until(async move {
-            // Локальная задача для коннекторов (не Send)
-            tokio::task::spawn_local(stream(tx_events));
+            let handle_stream = tokio::task::spawn_local(stream(tx_events));
+            let handle_saver = tokio::spawn(saver(rx_events));
 
-            // Асинхронная задача сохранения в базу (можно Send)
-            tokio::spawn(saver(rx_events));
+            tokio::select! {
+                res = handle_stream => res.unwrap_or_else(|e| {
+                    eprintln!("Stream task error: {:?}", e);
+                    std::process::exit(1);
+                }),
+                res = handle_saver => res.unwrap_or_else(|e| {
+                    eprintln!("Saver task error: {:?}", e);
+                    std::process::exit(1);
+                }),
+            }
 
-            // main live forever
-            futures::future::pending::<()>().await;
+            std::process::exit(0);
         })
         .await;
 }
