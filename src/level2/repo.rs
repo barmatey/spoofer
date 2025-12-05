@@ -4,7 +4,6 @@ use clickhouse::error::Error;
 use clickhouse::insert::Insert;
 use clickhouse::Client;
 use serde::Serialize;
-use std::sync::Arc;
 
 #[derive(clickhouse::Row, Serialize)]
 struct LevelUpdateRow {
@@ -31,43 +30,25 @@ impl LevelUpdateRow {
 
 pub struct LevelUpdatedRepo<'a> {
     client: &'a Client,
-    buffer_size: usize,
-    buffer: Vec<LevelUpdated>,
 }
 
 impl<'a> LevelUpdatedRepo<'a> {
-    pub fn new(client: &'a Client, buffer_size: usize) -> Self {
-        Self {
-            client,
-            buffer_size,
-            buffer: Vec::with_capacity(buffer_size + 1),
-        }
+    pub fn new(client: &'a Client) -> Self {
+        Self { client }
     }
 
-    pub fn push(&mut self, event: LevelUpdated) {
-        self.buffer.push(event);
-    }
-
-    pub async fn save_if_full(&mut self) -> Result<(), Level2Error> {
-        if self.buffer.len() >= self.buffer_size {
-            self.save().await?
-        }
-        Ok(())
-    }
-
-    pub async fn save(&mut self) -> Result<(), Level2Error> {
-        if self.buffer.is_empty() {
+    pub async fn save(&self, events: &[LevelUpdated]) -> Result<(), Level2Error> {
+        if events.is_empty() {
             return Ok(());
         }
+
         let mut insert: Insert<LevelUpdateRow> = self.client.insert("level_updates").await?;
-
-        for event in self.buffer.iter() {
-            let row = LevelUpdateRow::from_level_updated(event);
-            insert.write(&row).await?;
+        for ev in events {
+            insert
+                .write(&LevelUpdateRow::from_level_updated(ev))
+                .await?;
         }
-
         insert.end().await?;
-        self.buffer.clear();
         Ok(())
     }
 }

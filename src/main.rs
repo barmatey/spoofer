@@ -69,15 +69,14 @@ async fn saver(rx_events: mpsc::Receiver<Event>) {
 
     // Repositories
     let client = client.with_database("spoofer");
-    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
+    let depth_repo = LevelUpdatedRepo::new(&client);
 
     // Read & Save
     let mut rx_events = rx_events;
     while let Some(ev) = rx_events.recv().await {
         match ev {
             Event::LevelUpdate(v) => {
-                depth_repo.push(v);
-                depth_repo.save_if_full().await.unwrap();
+                depth_repo.save(&[v]).await.unwrap();
             }
             Event::Trade(v) => {}
         }
