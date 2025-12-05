@@ -1,11 +1,14 @@
 use crate::connector::{Connector, ConnectorBuilder, Event};
-use crate::level2::{LevelUpdatedRepo, OrderBook};
+use crate::db::init_database;
+use crate::level2::{LevelUpdated, LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::format_price;
 use crate::signal::ArbitrageMonitor;
 use clickhouse::Client;
-use futures_util::{stream::select, StreamExt};
-use std::pin::pin;
-use crate::db::init_database;
+use futures_util::StreamExt;
+use pin_utils::pin_mut;
+use tokio::sync::mpsc;
+use tokio::task::LocalSet;
+// добавь в Cargo.toml: pin-utils = "0.1"
 
 mod connector;
 mod shared;
@@ -16,16 +19,13 @@ mod trade;
 
 mod db;
 
-async fn stream(){
-    let client = Client::default()
-        .with_url("http://127.0.0.1:8123") // порт HTTP ClickHouse по умолчанию
-        .with_user("default")
-        .with_password("")
-        .with_database("spoofer");
-    
+async fn stream(tx_events: mpsc::Sender<Event>) {
+    // Настройка коннекторов
     let mut builder = ConnectorBuilder::new()
         .subscribe_depth(10)
         .log_level_debug();
+
+    // Тикеры
     let tickers = [
         ("btc/usdt", 100, 1_000_000),
         ("eth/usdt", 100, 10_000),
@@ -37,66 +37,77 @@ async fn stream(){
         builder = builder.add_ticker(ticker, p_mult, q_mult);
     }
 
-    let mut books = vec![];
-    for (ticker, _, _) in tickers {
-        let kraken_book = OrderBook::new("kraken", ticker, 10);
-        let binance_book = OrderBook::new("binance", ticker, 10);
-        books.push((kraken_book, binance_book));
-    }
-
-    // 1) создаём стримы
+    // Connectors
     let kraken = builder.build_kraken_connector().unwrap();
     let binance = builder.build_binance_connector().unwrap();
-    let kraken_stream = pin!(kraken.stream().await.unwrap());
-    let binance_stream = pin!(binance.stream().await.unwrap());
-    let mut stream = pin!(select(kraken_stream, binance_stream));
 
-    let mut depth_repo = LevelUpdatedRepo::new(&client, 1_000);
+    // Stream
+    let kraken_stream = kraken.stream().await.unwrap();
+    let binance_stream = binance.stream().await.unwrap();
 
+    pin_mut!(kraken_stream);
+    pin_mut!(binance_stream);
 
-
-    // 2) читаем события
-    while let Some(event) = stream.next().await {
-        match event {
-            Event::Trade(_) => {}
-            Event::LevelUpdate(ev) => {
-                for (kraken_book, binance_book) in books.iter_mut() {
-                    kraken_book.update_if_instrument_matches(&ev).unwrap();
-                    binance_book.update_if_instrument_matches(&ev).unwrap();
-
-                    let signal =
-                        ArbitrageMonitor::new(&kraken_book, &binance_book, 0.002).execute();
-                    match signal {
-                        Some(ev) => println!(
-                            "[{}] Buy: {} on {}. Sell: {} on {}. Profit: {}. Timestamp: {}",
-                            ev.buy.ticker,
-                            format_price(ev.buy.price, 2),
-                            ev.buy.exchange,
-                            format_price(ev.sell.price, 2),
-                            ev.sell.exchange,
-                            ev.profit_pct,
-                            ev.timestamp,
-                        ),
-                        None => {}
-                    }
-                }
-
-                depth_repo.save_if_full().await.unwrap();
+    // Чтение из обоих стримов и отправка в канал
+    loop {
+        tokio::select! {
+            Some(event) = kraken_stream.next() => {
+                let _ = tx_events.send(event).await;
             }
+            Some(event) = binance_stream.next() => {
+                let _ = tx_events.send(event).await;
+            }
+            else => break, // оба потока закрыты
         }
     }
 }
 
-#[tokio::main]
-async fn main() {
-    // Repos
+async fn saver(rx_events: mpsc::Receiver<Event>) {
     let client = Client::default()
-        .with_url("http://127.0.0.1:8123") // порт HTTP ClickHouse по умолчанию
+        .with_url("http://127.0.0.1:8123")
         .with_user("default")
         .with_password("");
 
     init_database(&client, "spoofer", true).await.unwrap();
-    
 
+    let client = client.with_database("spoofer");
 
+    let mut repo = LevelUpdatedRepo::new(&client, 1_000);
+
+    // Читаем события и сохраняем
+    let mut rx_events = rx_events;
+    while let Some(ev) = rx_events.recv().await {
+        match ev {
+            Event::LevelUpdate(v) => {
+                repo.push(v);
+                if let Err(e) = repo.save_if_full().await {
+                    eprintln!("Ошибка при сохранении в ClickHouse: {:?}", e);
+                }
+            }
+            Event::Trade(v) => {}
+        }
+    }
+}
+
+fn calculating_task(rx_events: mpsc::Receiver<LevelUpdated>) {
+    todo!()
+}
+
+#[tokio::main]
+async fn main() {
+    let (tx_events, rx_events) = mpsc::channel::<Event>(1000);
+
+    let local = LocalSet::new();
+    local
+        .run_until(async move {
+            // Локальная задача для коннекторов (не Send)
+            tokio::task::spawn_local(stream(tx_events));
+
+            // Асинхронная задача сохранения в базу (можно Send)
+            tokio::spawn(saver(rx_events));
+
+            // main live forever
+            futures::future::pending::<()>().await;
+        })
+        .await;
 }
