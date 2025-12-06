@@ -47,6 +47,7 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
     while let Ok(ev) = rx_events.recv().await {
         service.save(ev).await.unwrap();
     }
+    service.flush_all().await.unwrap();
 }
 
 async fn processor(mut rx_events: broadcast::Receiver<Event>) {
