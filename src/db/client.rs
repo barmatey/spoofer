@@ -1,8 +1,9 @@
+use crate::db::errors::Error;
 use crate::level2::create_level_updates_table;
 use crate::shared::logger::Logger;
+use crate::trade::create_trade_event_table;
 use clickhouse::Client;
 use tracing::Level;
-use crate::db::errors::Error;
 
 async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     let query_check = format!(
@@ -51,6 +52,8 @@ async fn init_database(client: &Client, db_name: &str, recreate: bool) -> Result
         drop_all_tables(client, &logger, db_name).await?;
     }
     create_level_updates_table(client, &logger, db_name).await?;
+    create_trade_event_table(client, &logger, db_name).await?;
+    logger.info("Successful database initialisation");
     Ok(())
 }
 

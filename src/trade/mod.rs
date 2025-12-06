@@ -5,5 +5,5 @@ mod repo;
 
 pub use errors::TradeError;
 pub use events::TradeEvent;
-pub use repo::{TradeEventRepo};
+pub use repo::{TradeEventRepo, create_trade_event_table};
 pub use trade_store::TradeStore;

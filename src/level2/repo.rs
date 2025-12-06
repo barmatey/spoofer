@@ -58,7 +58,7 @@ pub async fn create_level_updates_table(
     logger: &Logger,
     db_name: &str,
 ) -> Result<(), Error> {
-    logger.info("Create level updated table");
+    logger.info("Creating level updated table");
 
     let query = format!(
         r#"

@@ -53,12 +53,12 @@ impl<'a> TradeEventRepo<'a> {
     }
 }
 
-pub async fn create_trade_events_table(
+pub async fn create_trade_event_table(
     client: &Client,
     logger: &Logger,
     db_name: &str,
 ) -> Result<(), TradeError> {
-    logger.info("Create trade events table");
+    logger.info("Creating trade events table");
 
     let query = format!(
         r#"

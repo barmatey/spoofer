@@ -9,6 +9,7 @@ use crate::connector::{Event, Exchange, StreamConnector};
 use db::{ClickHouseClient, SaverService};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
+use tokio::task::LocalSet;
 
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
@@ -55,41 +56,55 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
         match ev {
             Event::LevelUpdate(v) => {
                 // Здесь можно обрабатывать LevelUpdated
-                println!("Processor got LevelUpdate: {:?}", v);
             }
-            Event::Trade(_) => {}
+            Event::Trade(v) => {
+                println!("{:?}", v);
+
+            }
         }
     }
 }
 
-#[tokio::main]
-async fn main() {
+
+
+use std::thread;
+use tokio::runtime::Runtime;
+
+fn main() {
+    // Канал для событий
     let (tx_events, _) = broadcast::channel::<Event>(1000);
 
-    let handle_saver = tokio::spawn(saver(tx_events.subscribe()));
-    let handle_processor = tokio::spawn(processor(tx_events.subscribe()));
-    let handle_stream = tokio::task::spawn_local(stream(tx_events));
+    // Поток для stream (!Send)
+    let tx_stream = tx_events.clone();
+    let stream_handle = thread::spawn(move || {
+        // Создаем локальный однопоточный runtime для stream
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            stream(tx_stream).await;
+        });
+    });
 
-    tokio::select! {
-        res = handle_stream => {
-            if let Err(e) = res {
-                eprintln!("Stream task error: {:?}", e);
-                std::process::exit(1);
-            }
-        }
-        res = handle_saver => {
-            if let Err(e) = res {
-                eprintln!("Saver task error: {:?}", e);
-                std::process::exit(1);
-            }
-        }
-        res = handle_processor => {
-            if let Err(e) = res {
-                eprintln!("Processor task error: {:?}", e);
-                std::process::exit(1);
-            }
-        }
-    }
+    // Поток для saver (Send)
+    let saver_rx = tx_events.subscribe();
+    let saver_handle = thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            saver(saver_rx).await;
+        });
+    });
 
-    std::process::exit(0);
+    // Поток для processor (Send)
+    let processor_rx = tx_events.subscribe();
+    let processor_handle = thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            processor(processor_rx).await;
+        });
+    });
+
+    // Ждем завершения потоков (хотя они скорее всего бесконечные)
+    let _ = stream_handle.join();
+    let _ = saver_handle.join();
+    let _ = processor_handle.join();
 }
+
