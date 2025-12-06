@@ -42,7 +42,6 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .build()
         .await
         .unwrap();
-
     let mut service = SaverService::new(&client, 50_000);
     loop {
         let event = rx_events.recv().await.unwrap();
@@ -52,19 +51,7 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 
 async fn processor(mut rx_events: broadcast::Receiver<Event>) {
     loop {
-        match rx_events.recv().await {
-            Ok(ev) => {
-                // println!("{:?}", ev);
-            }
-            Err(RecvError::Closed) => {
-                eprintln!("Saver: broadcast channel closed");
-                panic!();
-            }
-            Err(RecvError::Lagged(n)) => {
-                eprintln!("Saver: skipped {} messages", n);
-                panic!();
-            }
-        }
+        let event = rx_events.recv().await.unwrap();
     }
 }
 
