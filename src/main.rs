@@ -8,7 +8,7 @@ mod trade;
 use crate::connector::{Event, Exchange, StreamConnector};
 use db::{ClickHouseClient, SaverService};
 use futures_util::StreamExt;
-use tokio::sync::broadcast;
+use tokio::sync::{mpsc};
 
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
@@ -17,7 +17,7 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
     ("bnb/usdt", 1000, 10_000),
 ];
 
-async fn stream(tx_events: broadcast::Sender<Event>) {
+async fn stream(tx_saver: mpsc::Sender<Event>, tx_processor: mpsc::Sender<Event>) {
     let mut stream = StreamConnector::new()
         .exchanges(&[Exchange::All])
         .tickers(&TICKERS)
@@ -28,11 +28,12 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
         .await
         .unwrap();
     while let Some(event) = stream.next().await {
-        let _ = tx_events.send(event);
+        let _ = tx_saver.send(event.clone()).await;
+        let _ = tx_processor.send(event).await;
     }
 }
 
-async fn saver(mut rx_events: broadcast::Receiver<Event>) {
+async fn saver(mut rx_events: mpsc::Receiver<Event>) {
     let client = ClickHouseClient::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
@@ -42,22 +43,30 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .await
         .unwrap();
 
-    let mut service = SaverService::new(&client, 1_000);
+    let mut service = SaverService::new(&client, 10_000);
 
-    while let Ok(ev) = rx_events.recv().await {
-        service.save(ev).await.unwrap();
+    loop {
+        match rx_events.recv().await {
+            Some(ev) => {
+                service.save(ev).await.unwrap();
+            }
+            None => {
+                eprintln!("Saver: broadcast channel closed");
+                panic!();
+            }
+        }
     }
-    service.flush_all().await.unwrap();
 }
 
-async fn processor(mut rx_events: broadcast::Receiver<Event>) {
-    while let Ok(ev) = rx_events.recv().await {
-        match ev {
-            Event::LevelUpdate(v) => {
-                println!("{:?}", v);
+async fn processor(mut rx_events: mpsc::Receiver<Event>) {
+    loop {
+        match rx_events.recv().await {
+            Some(ev) => {
+                println!("{:?}", ev);
             }
-            Event::Trade(v) => {
-                println!("{:?}", v);
+            None => {
+                eprintln!("Saver: broadcast channel closed");
+                panic!();
             }
         }
     }
@@ -65,24 +74,22 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
-    let (tx_events, _) = broadcast::channel::<Event>(1000);
+    let (tx_saver, rx_saver) = mpsc::channel::<Event>(100);
+    let (tx_processor, rx_processor) = mpsc::channel::<Event>(100);
 
     // Stream tread
-    let stream_tx = tx_events.clone();
     let handle_stream = tokio::spawn(async move {
-        stream(stream_tx).await;
+        stream(tx_saver, tx_processor).await;
     });
 
     // Saver thread
-    let saver_rx = tx_events.subscribe();
     let handle_saver = tokio::spawn(async move {
-        saver(saver_rx).await;
+        saver(rx_saver).await;
     });
 
     // Arbitrage tread
-    let processor_rx = tx_events.subscribe();
     let handle_processor = tokio::spawn(async move {
-        processor(processor_rx).await;
+        processor(rx_processor).await;
     });
 
     // Ждем все задачи (они бесконечные)
