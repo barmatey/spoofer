@@ -2,5 +2,5 @@ mod client;
 mod saver;
 mod errors;
 
-pub use client::ClickHouseClient;
+pub use client::DatabaseClient;
 pub use saver::SaverService;
