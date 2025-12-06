@@ -85,7 +85,7 @@ impl KrakenConnector {
     fn handle_depth(
         &self,
         data: &serde_json::Map<String, Value>,
-        result: &mut StreamBuffer,
+        result: &StreamBuffer,
     ) -> Result<(), Error> {
         self.logger.debug("Handle depth_update message");
 
@@ -111,7 +111,7 @@ impl KrakenConnector {
                     quantity: qty as Quantity,
                     timestamp: ts,
                 };
-                result.push_back(Event::LevelUpdate(event));
+                result.push(Event::LevelUpdate(event));
             }
 
             for ask in entry.asks {
@@ -126,7 +126,7 @@ impl KrakenConnector {
                     quantity: qty as Quantity,
                     timestamp: ts,
                 };
-                result.push_back(Event::LevelUpdate(event));
+                result.push(Event::LevelUpdate(event));
             }
         }
 
@@ -136,7 +136,7 @@ impl KrakenConnector {
     fn handle_trade(
         &self,
         obj: &serde_json::Map<String, Value>,
-        result: &mut StreamBuffer,
+        result: &StreamBuffer,
     ) -> Result<(), Error> {
         self.logger.debug("Handle trade message");
 
@@ -168,7 +168,7 @@ impl KrakenConnector {
                 market_maker: side,
             };
 
-            result.push_back(Event::Trade(event));
+            result.push(Event::Trade(event));
         }
 
         Ok(())
@@ -222,7 +222,7 @@ impl ConnectorInternal for KrakenConnector {
         Ok((write, read))
     }
 
-    fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), Error> {
+    fn on_message(&self, msg: &str, buffer: &StreamBuffer) -> Result<(), Error> {
         let obj = parse_serde_object(msg)?;
 
         if let Some(error) = obj.get("error") {

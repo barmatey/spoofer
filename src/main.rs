@@ -59,52 +59,37 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
             }
             Event::Trade(v) => {
                 println!("{:?}", v);
-
             }
         }
     }
 }
 
-
-
-use std::thread;
-use tokio::runtime::Runtime;
-
-fn main() {
-    // Канал для событий
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+async fn main() {
     let (tx_events, _) = broadcast::channel::<Event>(1000);
 
-    // Поток для stream (!Send)
-    let tx_stream = tx_events.clone();
-    let stream_handle = thread::spawn(move || {
-        // Создаем локальный однопоточный runtime для stream
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async move {
-            stream(tx_stream).await;
-        });
+    // Stream tread
+    let stream_tx = tx_events.clone();
+    let handle_stream = tokio::spawn(async move {
+        stream(stream_tx).await;
     });
 
-    // Поток для saver (Send)
+    // Saver thread
     let saver_rx = tx_events.subscribe();
-    let saver_handle = thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async move {
-            saver(saver_rx).await;
-        });
+    let handle_saver = tokio::spawn(async move {
+        saver(saver_rx).await;
     });
 
-    // Поток для processor (Send)
+    // Arbitrage tread
     let processor_rx = tx_events.subscribe();
-    let processor_handle = thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async move {
-            processor(processor_rx).await;
-        });
+    let handle_processor = tokio::spawn(async move {
+        processor(processor_rx).await;
     });
 
-    // Ждем завершения потоков (хотя они скорее всего бесконечные)
-    let _ = stream_handle.join();
-    let _ = saver_handle.join();
-    let _ = processor_handle.join();
+    // Ждем все задачи (они бесконечные)
+    tokio::select! {
+        res = handle_stream => println!("handle_stream: {:?}", res),
+        res = handle_saver => println!("handle_saver: {:?}", res),
+        res = handle_processor => println!("handle_processor: {:?}", res),
+    }
 }
-

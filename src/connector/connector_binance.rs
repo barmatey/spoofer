@@ -167,7 +167,7 @@ impl BinanceConnector {
         Ok(())
     }
 
-    fn handle_depth(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
+    fn handle_depth(&self, data: &Value, result: &StreamBuffer) -> Result<(), Error> {
         self.logger.debug("Handle depth_update message");
 
         let txt = data.to_string();
@@ -187,7 +187,7 @@ impl BinanceConnector {
                 quantity: quantity as Quantity,
                 timestamp: parsed.event_time,
             };
-            result.push_back(Event::LevelUpdate(ev));
+            result.push(Event::LevelUpdate(ev));
         }
 
         for (price, quantity) in parsed.asks_to_update.iter() {
@@ -202,13 +202,13 @@ impl BinanceConnector {
                 quantity: quantity as Quantity,
                 timestamp: parsed.event_time,
             };
-            result.push_back(Event::LevelUpdate(ev));
+            result.push(Event::LevelUpdate(ev));
         }
 
         Ok(())
     }
 
-    fn handle_trade(&self, data: &Value, result: &mut StreamBuffer) -> Result<(), Error> {
+    fn handle_trade(&self, data: &Value, result: &StreamBuffer) -> Result<(), Error> {
         self.logger.debug("Handle trade message");
 
         let txt = data.to_string();
@@ -227,7 +227,7 @@ impl BinanceConnector {
             timestamp: trade.event_time,
             market_maker: [Side::Sell, Side::Buy][trade.is_buyer_maker as usize],
         };
-        result.push_back(Event::Trade(event));
+        result.push(Event::Trade(event));
 
         Ok(())
     }
@@ -242,7 +242,7 @@ impl ConnectorInternal for BinanceConnector {
         connect_websocket(&url, &self.logger).await
     }
 
-    fn on_message(&self, msg: &str, result: &mut StreamBuffer) -> Result<(), Error> {
+    fn on_message(&self, msg: &str, result: &StreamBuffer) -> Result<(), Error> {
         let wrapper = parse_serde_value(msg)?;
 
         let data = wrapper.get("data").ok_or_else(|| {

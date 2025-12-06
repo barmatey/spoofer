@@ -6,6 +6,7 @@ use futures_util::stream::{self, Stream};
 use std::pin::Pin;
 use std::sync::Arc;
 use tracing::Level;
+use crate::connector::connector::EventStream;
 
 #[derive(Clone, PartialEq)]
 pub enum Exchange {
@@ -70,7 +71,7 @@ impl StreamConnector {
 
     pub fn add_error_handler<F>(mut self, handler: F) -> Self
     where
-        F: Fn(&Error) + 'static,
+        F: Fn(&Error) + Send + Sync + 'static,
     {
         let boxed = Arc::new(handler);
         self.error_handlers.push(boxed);
@@ -125,7 +126,7 @@ impl StreamConnector {
         Ok(config)
     }
 
-    pub async fn connect(self) -> Result<Pin<Box<dyn Stream<Item = Event>>>, Error> {
+    pub async fn connect(self) -> Result<EventStream, Error> {
         self.validate()?;
 
         let mut merged: Option<Pin<Box<dyn Stream<Item = Event>>>> = None;

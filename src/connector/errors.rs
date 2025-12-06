@@ -54,4 +54,4 @@ pub enum Error {
     InternalError(String),
 }
 
-pub type ErrorHandler = Arc<dyn Fn(&Error)>;
+pub type ErrorHandler = Arc<dyn Fn(&Error) + Send + Sync>;

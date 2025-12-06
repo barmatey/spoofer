@@ -5,7 +5,8 @@ use crate::trade::TradeEvent;
 use async_stream::stream;
 use futures::Stream;
 use futures_util::StreamExt;
-use std::collections::VecDeque;
+use std::pin::Pin;
+use crossbeam::queue::SegQueue;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -13,36 +14,39 @@ pub enum Event {
     LevelUpdate(LevelUpdated),
 }
 
-pub type StreamBuffer = VecDeque<Event>;
+pub type StreamBuffer = SegQueue<Event>;
+pub type EventStream = Pin<Box<dyn Stream<Item = Event> + Send + Sync>>;
 
-pub trait Connector {
-    async fn stream(self) -> Result<impl Stream<Item = Event>, Error>;
+
+pub trait Connector: Send + Sync{
+    async fn stream(self) -> Result<EventStream, Error>;
 }
 
-pub(crate) trait ConnectorInternal {
+pub(crate) trait ConnectorInternal: Send + Sync {
     async fn connect(&self) -> Result<Connection, Error>;
 
-    fn on_message(&self, msg: &str, buffer: &mut StreamBuffer) -> Result<(), Error>;
+    fn on_message(&self, msg: &str, buffer: &StreamBuffer) -> Result<(), Error>;
 
     fn on_error(&self, err: &Error);
 }
 
-impl<T: ConnectorInternal> Connector for T {
-    async fn stream(self) -> Result<impl Stream<Item = Event>, Error> {
+impl<T: ConnectorInternal + 'static> Connector for T {
+    async fn stream(self) -> Result<EventStream, Error> {
         let (write, read) = self.connect().await?;
         let ws = websocket_stream(write, read);
-        let mut buffer: StreamBuffer = VecDeque::new();
+        let buffer: StreamBuffer = SegQueue::new();
 
-        let this = self;
-
+        // перемещаем self внутрь стрима через move
         let s = stream! {
+            let this = self; // владение объектом
             futures_util::pin_mut!(ws);
+
             while let Some(msg) = ws.next().await {
                 match msg {
                     Ok(txt) => {
-                        match this.on_message(&txt, &mut buffer) {
+                        match this.on_message(&txt, &buffer) {
                             Ok(()) => {
-                                while let Some(ev) = buffer.pop_front(){
+                                while let Some(ev) = buffer.pop() {
                                     yield ev;
                                 }
                             }
@@ -60,6 +64,6 @@ impl<T: ConnectorInternal> Connector for T {
             }
         };
 
-        Ok(s)
+        Ok(Box::pin(s) as EventStream)
     }
 }
