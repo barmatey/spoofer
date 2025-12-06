@@ -3,7 +3,6 @@ use crate::db::errors::Error;
 use crate::level2::{LevelUpdated, LevelUpdatedRepo};
 use crate::trade::{TradeEvent, TradeEventRepo};
 use clickhouse::Client;
-use tracing::Level;
 
 trait Repository<T> {
     async fn save(&self, events: &[T]) -> Result<(), Error>;
