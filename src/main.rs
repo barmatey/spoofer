@@ -8,7 +8,8 @@ mod trade;
 use crate::connector::{Event, Exchange, StreamConnector};
 use db::{ClickHouseClient, SaverService};
 use futures_util::StreamExt;
-use tokio::sync::{mpsc};
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
 
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
@@ -17,7 +18,7 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
     ("bnb/usdt", 1000, 10_000),
 ];
 
-async fn stream(tx_saver: mpsc::Sender<Event>, tx_processor: mpsc::Sender<Event>) {
+async fn stream(tx_events: broadcast::Sender<Event>) {
     let mut stream = StreamConnector::new()
         .exchanges(&[Exchange::All])
         .tickers(&TICKERS)
@@ -28,12 +29,11 @@ async fn stream(tx_saver: mpsc::Sender<Event>, tx_processor: mpsc::Sender<Event>
         .await
         .unwrap();
     while let Some(event) = stream.next().await {
-        let _ = tx_saver.send(event.clone()).await;
-        let _ = tx_processor.send(event).await;
+        let _ = tx_events.send(event);
     }
 }
 
-async fn saver(mut rx_events: mpsc::Receiver<Event>) {
+async fn saver(mut rx_events: broadcast::Receiver<Event>) {
     let client = ClickHouseClient::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
@@ -43,29 +43,37 @@ async fn saver(mut rx_events: mpsc::Receiver<Event>) {
         .await
         .unwrap();
 
-    let mut service = SaverService::new(&client, 10_000);
+    let mut service = SaverService::new(&client, 50_000);
 
     loop {
         match rx_events.recv().await {
-            Some(ev) => {
+            Ok(ev) => {
                 service.save(ev).await.unwrap();
             }
-            None => {
+            Err(RecvError::Closed) => {
                 eprintln!("Saver: broadcast channel closed");
+                panic!();
+            }
+            Err(RecvError::Lagged(n)) => {
+                eprintln!("Saver: skipped {} messages", n);
                 panic!();
             }
         }
     }
 }
 
-async fn processor(mut rx_events: mpsc::Receiver<Event>) {
+async fn processor(mut rx_events: broadcast::Receiver<Event>) {
     loop {
         match rx_events.recv().await {
-            Some(ev) => {
-                println!("{:?}", ev);
+            Ok(ev) => {
+                // println!("{:?}", ev);
             }
-            None => {
+            Err(RecvError::Closed) => {
                 eprintln!("Saver: broadcast channel closed");
+                panic!();
+            }
+            Err(RecvError::Lagged(n)) => {
+                eprintln!("Saver: skipped {} messages", n);
                 panic!();
             }
         }
@@ -74,22 +82,24 @@ async fn processor(mut rx_events: mpsc::Receiver<Event>) {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
-    let (tx_saver, rx_saver) = mpsc::channel::<Event>(100);
-    let (tx_processor, rx_processor) = mpsc::channel::<Event>(100);
+    let (tx_events, _) = broadcast::channel::<Event>(50_000);
 
     // Stream tread
+    let stream_tx = tx_events.clone();
     let handle_stream = tokio::spawn(async move {
-        stream(tx_saver, tx_processor).await;
+        stream(stream_tx).await;
     });
 
     // Saver thread
+    let saver_rx = tx_events.subscribe();
     let handle_saver = tokio::spawn(async move {
-        saver(rx_saver).await;
+        saver(saver_rx).await;
     });
 
     // Arbitrage tread
+    let processor_rx = tx_events.subscribe();
     let handle_processor = tokio::spawn(async move {
-        processor(rx_processor).await;
+        processor(processor_rx).await;
     });
 
     // Ждем все задачи (они бесконечные)
