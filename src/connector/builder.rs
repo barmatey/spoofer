@@ -1,12 +1,11 @@
 use crate::connector::config::{ConnectorConfig, TickerConfig, TickerConfigValidator};
+use crate::connector::connector::EventStream;
 use crate::connector::errors::Error::BuilderError;
 use crate::connector::errors::{Error, ErrorHandler};
-use crate::connector::{BinanceConnector, Connector, Event, KrakenConnector};
-use futures_util::stream::{self, Stream};
-use std::pin::Pin;
+use crate::connector::{BinanceConnector, Connector, KrakenConnector};
+use futures_util::stream::{self};
 use std::sync::Arc;
 use tracing::Level;
-use crate::connector::connector::EventStream;
 
 #[derive(Clone, PartialEq)]
 pub enum Exchange {
@@ -129,7 +128,7 @@ impl StreamConnector {
     pub async fn connect(self) -> Result<EventStream, Error> {
         self.validate()?;
 
-        let mut merged: Option<Pin<Box<dyn Stream<Item = Event>>>> = None;
+        let mut merged: Option<EventStream> = None;
 
         // Kraken
         if self.exchanges.contains(&Exchange::Kraken) || self.exchanges.contains(&Exchange::All) {
@@ -151,6 +150,8 @@ impl StreamConnector {
             });
         }
 
-        Ok(merged.unwrap())
+        let stream: EventStream = merged.unwrap();
+
+        Ok(stream)
     }
 }

@@ -9,7 +9,6 @@ use crate::connector::{Event, Exchange, StreamConnector};
 use db::{ClickHouseClient, SaverService};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
-use tokio::task::LocalSet;
 
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
@@ -55,7 +54,7 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
     while let Ok(ev) = rx_events.recv().await {
         match ev {
             Event::LevelUpdate(v) => {
-                // Здесь можно обрабатывать LevelUpdated
+                println!("{:?}", v);
             }
             Event::Trade(v) => {
                 println!("{:?}", v);
