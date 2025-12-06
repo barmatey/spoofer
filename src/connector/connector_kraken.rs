@@ -253,4 +253,8 @@ impl ConnectorInternal for KrakenConnector {
             handler(err)
         }
     }
+
+    fn logger(&self) -> &Logger {
+        &self.logger
+    }
 }

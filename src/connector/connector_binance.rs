@@ -1,12 +1,9 @@
-use crate::connector::errors::{Error, ErrorHandler};
-use reqwest::get;
-use std::collections::HashSet;
-use std::sync::Arc;
 use crate::connector::config::{ConnectorConfig, TickerConfig};
 use crate::connector::connector::{ConnectorInternal, StreamBuffer};
 use crate::connector::errors::Error::InternalError;
 use crate::connector::errors::ExchangeError::BinanceError;
 use crate::connector::errors::ParsingError::MessageParsingError;
+use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::services::parser::{model_from_string, parse_number, parse_serde_value};
 use crate::connector::services::ticker_map::TickerMap;
 use crate::connector::services::websocket::{connect_websocket, Connection};
@@ -15,8 +12,11 @@ use crate::level2::LevelUpdated;
 use crate::shared::logger::Logger;
 use crate::shared::{Price, Quantity, Side};
 use crate::trade::TradeEvent;
+use reqwest::get;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -270,5 +270,9 @@ impl ConnectorInternal for BinanceConnector {
         for handler in self.error_handlers.iter() {
             handler(err)
         }
+    }
+
+    fn logger(&self) -> &Logger {
+        &self.logger
     }
 }

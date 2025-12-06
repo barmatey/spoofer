@@ -7,6 +7,7 @@ use futures::Stream;
 use futures_util::StreamExt;
 use std::pin::Pin;
 use crossbeam::queue::SegQueue;
+use crate::shared::logger::Logger;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -28,6 +29,8 @@ pub(crate) trait ConnectorInternal: Send + Sync {
     fn on_message(&self, msg: &str, buffer: &StreamBuffer) -> Result<(), Error>;
 
     fn on_error(&self, err: &Error);
+
+    fn logger(&self) ->  &Logger;
 }
 
 impl<T: ConnectorInternal + 'static> Connector for T {
@@ -41,9 +44,9 @@ impl<T: ConnectorInternal + 'static> Connector for T {
             let this = self; // владение объектом
             futures_util::pin_mut!(ws);
 
-            while let Some(msg) = ws.next().await {
-                match msg {
-                    Ok(txt) => {
+            loop {
+                match ws.next().await {
+                    Some(Ok(txt)) => {
                         match this.on_message(&txt, &buffer) {
                             Ok(()) => {
                                 while let Some(ev) = buffer.pop() {
@@ -56,9 +59,13 @@ impl<T: ConnectorInternal + 'static> Connector for T {
                             }
                         }
                     }
-                    Err(err) => {
+                    Some(Err(err)) => {
                         this.on_error(&err);
                         continue;
+                    }
+                    None => {
+                        this.logger().warn("WebSocket closed by server");
+                        break;
                     }
                 }
             }
