@@ -71,6 +71,6 @@ impl<T: ConnectorInternal + 'static> Connector for T {
             }
         };
 
-        Ok(Box::pin(s) as EventStream)
+        Ok(Box::pin(s))
     }
 }
