@@ -5,4 +5,7 @@ pub enum Error {
 
     #[error("DepthError: {0}")]
     DepthError(#[from] crate::level2::Level2Error),
+
+    #[error("TradeError: {0}")]
+    TradeError(#[from] crate::trade::TradeError),
 }
