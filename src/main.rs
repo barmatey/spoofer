@@ -29,8 +29,9 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
         .connect()
         .await
         .unwrap();
-    while let Some(event) = stream.next().await {
-        let _ = tx_events.send(event);
+    loop {
+        let event = stream.next().await.unwrap();
+        tx_events.send(event).unwrap();
     }
 }
 
