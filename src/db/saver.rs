@@ -1,7 +1,6 @@
 use crate::connector::Event;
 use crate::db::errors::Error;
 use crate::level2::{LevelUpdated, LevelUpdatedRepo};
-use crate::shared::logger::Logger;
 use crate::trade::{TradeEvent, TradeEventRepo};
 use clickhouse::Client;
 use tracing::Level;
@@ -43,8 +42,6 @@ impl<T, R: Repository<T>> BufferedSaver<T, R> {
         self.buffer.push(event);
 
         if self.buffer.len() >= self.buffer_size {
-            Logger::new("saver", Level::DEBUG)
-                .debug(&format!("Saving {:?} records", self.buffer.len()));
             self.repo.save(&self.buffer).await?;
             self.buffer.clear();
         }
