@@ -1,6 +1,7 @@
+use clickhouse::{insert::Insert, Client, Row};
 use serde::Serialize;
-use clickhouse::{Row, Client, insert::Insert};
 
+use crate::shared::logger::Logger;
 use crate::shared::{Price, Quantity, TimestampMS};
 use crate::trade::{TradeError, TradeEvent};
 
@@ -27,8 +28,6 @@ impl TradeEventRow {
     }
 }
 
-
-
 pub struct TradeEventRepo<'a> {
     client: &'a Client,
 }
@@ -43,16 +42,39 @@ impl<'a> TradeEventRepo<'a> {
             return Ok(());
         }
 
-        let mut insert: Insert<TradeEventRow> =
-            self.client.insert("trade_events").await?;
+        let mut insert: Insert<TradeEventRow> = self.client.insert("trade_events").await?;
 
         for ev in events {
-            insert
-                .write(&TradeEventRow::from_trade(ev))
-                .await?;
+            insert.write(&TradeEventRow::from_trade(ev)).await?;
         }
 
         insert.end().await?;
         Ok(())
     }
+}
+
+pub async fn create_trade_events_table(
+    client: &Client,
+    logger: &Logger,
+    db_name: &str,
+) -> Result<(), TradeError> {
+    logger.info("Create trade events table");
+
+    let query = format!(
+        r#"
+        CREATE TABLE IF NOT EXISTS {}.trade_events (
+            exchange String,
+            ticker String,
+            price UInt64,
+            quantity UInt64,
+            timestamp UInt64,
+            market_maker UInt8
+        ) ENGINE = MergeTree()
+        ORDER BY (exchange, ticker, timestamp)
+    "#,
+        db_name
+    );
+
+    client.query(&query).execute().await?;
+    Ok(())
 }
