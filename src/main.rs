@@ -1,13 +1,12 @@
 mod connector;
+mod db;
 mod level2;
 mod shared;
 mod signal;
 mod trade;
-mod db;
 
 use crate::connector::{Event, Exchange, StreamConnector};
-use db::DatabaseClient;
-use crate::level2::LevelUpdatedRepo;
+use db::{DatabaseClient, SaverService};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
 
@@ -43,23 +42,10 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .await
         .unwrap();
 
-    let buffer_size = 1_000;
-    let mut levels = Vec::with_capacity(buffer_size);
-    let mut trades = Vec::with_capacity(buffer_size);
+    let mut service = SaverService::new(&client, 1_000);
 
     while let Ok(ev) = rx_events.recv().await {
-        match ev {
-            Event::LevelUpdate(v) => {
-                levels.push(v);
-                if levels.len() >= buffer_size {
-                    LevelUpdatedRepo::new(&client).save(&levels).await.unwrap();
-                    levels.clear();
-                }
-            }
-            Event::Trade(v) => {
-                trades.push(v);
-            }
-        }
+        service.save(ev).await.unwrap();
     }
 }
 
