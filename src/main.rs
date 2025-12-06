@@ -6,7 +6,7 @@ mod signal;
 mod trade;
 
 use crate::connector::{Event, Exchange, StreamConnector};
-use db::{DatabaseClient, SaverService};
+use db::{ClickHouseClient, SaverService};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
 
@@ -33,7 +33,7 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
 }
 
 async fn saver(mut rx_events: broadcast::Receiver<Event>) {
-    let client = DatabaseClient::default()
+    let client = ClickHouseClient::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
         .with_password("")
