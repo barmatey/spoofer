@@ -1,14 +1,13 @@
 mod connector;
-mod db;
 mod level2;
 mod shared;
 mod signal;
 mod trade;
+mod db;
 
 use crate::connector::{Event, Exchange, StreamConnector};
-use crate::db::{DatabaseClient};
+use db::DatabaseClient;
 use crate::level2::LevelUpdatedRepo;
-use clickhouse::Client;
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
 

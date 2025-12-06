@@ -1,8 +1,8 @@
 use crate::level2::create_level_updates_table;
 use crate::shared::logger::Logger;
-use clickhouse::error::Error;
 use clickhouse::Client;
 use tracing::Level;
+use crate::db::errors::Error;
 
 async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     let query_check = format!(
@@ -28,7 +28,7 @@ async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Res
 }
 
 async fn drop_all_tables(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
-    logger.info(&format!("Drop all tables in database {}", db_name));
+    logger.info(&format!("Drop all tables in db {}", db_name));
 
     let tables: Vec<String> = client
         .query(&format!("SHOW TABLES FROM {}", db_name))
