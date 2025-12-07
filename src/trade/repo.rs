@@ -73,7 +73,7 @@ pub async fn create_trade_event_table(
             received UInt64,
             market_maker UInt8
         ) ENGINE = MergeTree()
-        ORDER BY (exchange, ticker, timestamp)
+        ORDER BY (exchange, ticker, received)
     "#,
         db_name
     );

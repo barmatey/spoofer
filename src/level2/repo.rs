@@ -73,7 +73,7 @@ pub async fn create_level_updates_table(
             timestamp UInt64,
             received UInt64
         ) ENGINE = MergeTree()
-        ORDER BY (exchange, ticker, timestamp)
+        ORDER BY (exchange, ticker, received)
     "#,
         db_name
     );
