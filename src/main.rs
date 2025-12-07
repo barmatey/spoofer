@@ -9,11 +9,11 @@ use crate::connector::{Event, StreamConnector};
 use crate::level2::{LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::buffer_service::BufferService;
 use crate::shared::Exchange;
+use crate::signal::arbitrage_monitor::{ArbitrageMonitor, ArbitrageSignalRepo};
 use crate::trade::TradeEventRepo;
-use db::{DatabaseClient};
+use db::DatabaseClient;
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
-use crate::signal::arbitrage_monitor::ArbitrageMonitor;
 
 // Ticker, multiply for price, multiply for quantity
 static TICKERS: [(&'static str, u32, u32); 4] = [
@@ -60,6 +60,15 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 }
 
 async fn processor(mut rx_events: broadcast::Receiver<Event>) {
+    let client = DatabaseClient::default()
+        .with_url("http://127.0.0.1:8123")
+        .with_user("default")
+        .with_password("")
+        .with_database("spoofer")
+        .build()
+        .await
+        .unwrap();
+
     let mut books = vec![];
     for (ticker, _, _) in TICKERS.iter() {
         let ob1 = OrderBook::new(Exchange::Binance, ticker, 10);
@@ -67,6 +76,7 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
         books.push((ob1, ob2));
     }
     loop {
+        let signal_saver = BufferService::new(ArbitrageSignalRepo::new(&client), 100);
         let event = rx_events.recv().await.unwrap();
         match event {
             Event::Trade(_v) => {}
@@ -74,8 +84,11 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
                 for pair in books.iter_mut() {
                     pair.0.update_or_miss(&v);
                     pair.1.update_or_miss(&v);
-                    let signal = ArbitrageMonitor::new(&pair.0, &pair.1, 0.0005).execute();
-                    signal.map(|x| println!("{:?}", x));
+                    let signal = ArbitrageMonitor::new(&pair.0, &pair.1, 0.0003).execute();
+                    signal.map(async |x| {
+                        println!("{:?}", x);
+                        signal_saver.push(x).await.unwrap();
+                    });
                 }
             }
         }
