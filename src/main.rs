@@ -97,7 +97,6 @@ async fn main() {
         processor(processor_rx).await;
     });
 
-    // Ждем все задачи (они бесконечные)
     tokio::select! {
         res = handle_stream => println!("handle_stream: {:?}", res),
         res = handle_saver => println!("handle_saver: {:?}", res),
