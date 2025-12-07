@@ -13,6 +13,8 @@ use futures_util::StreamExt;
 use tokio::sync::broadcast;
 use crate::shared::Exchange;
 
+
+// Ticker, multiply for price, multiply for quantity
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
     ("eth/usdt", 100, 10_000),
