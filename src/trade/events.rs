@@ -1,9 +1,9 @@
 use std::sync::Arc;
-use crate::shared::{Price, Quantity, Side, TimestampMS};
+use crate::shared::{Exchange, Price, Quantity, Side, TimestampMS};
 
 #[derive(Debug, Clone)]
 pub struct TradeEvent {
-    pub exchange: Arc<String>,
+    pub exchange: Exchange,
     pub ticker: Arc<String>,
     pub price: Price,
     pub quantity: Quantity,

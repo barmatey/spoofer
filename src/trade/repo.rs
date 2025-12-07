@@ -7,7 +7,7 @@ use crate::trade::{TradeError, TradeEvent};
 
 #[derive(Row, Serialize)]
 pub struct TradeEventRow {
-    exchange: String,
+    exchange: u8,
     ticker: String,
     price: Price,
     quantity: Quantity,
@@ -18,7 +18,7 @@ pub struct TradeEventRow {
 impl TradeEventRow {
     pub fn from_trade(ev: &TradeEvent) -> Self {
         Self {
-            exchange: ev.exchange.as_ref().clone(),
+            exchange: ev.exchange.clone() as u8,
             ticker: ev.ticker.as_ref().clone(),
             price: ev.price,
             quantity: ev.quantity,

@@ -2,7 +2,7 @@ use crate::shared::errors::BaseError;
 use crate::shared::errors::BaseError::{
     IncompatibleExchange, IncompatiblePrice, IncompatibleSide, IncompatibleTicker, OutdatedError,
 };
-use crate::shared::{Price, Side, TimestampMS};
+use crate::shared::{Exchange, Price, Side, TimestampMS};
 
 pub fn check_timestamp(last_ts: TimestampMS, current_ts: TimestampMS) -> Result<(), BaseError> {
     if current_ts < last_ts {
@@ -23,10 +23,10 @@ pub fn check_ticker(left: &str, right: &str) -> Result<(), BaseError> {
     Ok(())
 }
 
-pub fn check_exchange(left: &str, right: &str) -> Result<(), BaseError> {
+pub fn check_exchange(left: &Exchange, right: &Exchange) -> Result<(), BaseError> {
     if left != right {
         Err(IncompatibleExchange(format!(
-            "Exchanges are different. {} != {}",
+            "Exchanges are different. {:?} != {:?}",
             left, right
         )))?;
     }

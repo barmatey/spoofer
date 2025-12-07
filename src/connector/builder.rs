@@ -6,13 +6,7 @@ use crate::connector::{BinanceConnector, Connector, KrakenConnector};
 use futures_util::stream::{self};
 use std::sync::Arc;
 use tracing::Level;
-
-#[derive(Clone, PartialEq)]
-pub enum Exchange {
-    Binance = 0,
-    Kraken = 1,
-    All = 2,
-}
+use crate::shared::Exchange;
 
 pub struct StreamConnector {
     subscribe_trades: bool,
@@ -32,7 +26,7 @@ impl StreamConnector {
             depth_value: 0,
             tickers: vec![],
             error_handlers: vec![],
-            exchanges: vec![Exchange::All],
+            exchanges: vec![],
             log_level: Level::INFO,
         }
     }
@@ -131,7 +125,7 @@ impl StreamConnector {
         let mut merged: Option<EventStream> = None;
 
         // Kraken
-        if self.exchanges.contains(&Exchange::Kraken) || self.exchanges.contains(&Exchange::All) {
+        if self.exchanges.contains(&Exchange::Kraken)  {
             let config = self.build_config()?;
             let kraken_stream = KrakenConnector::new(config).stream().await?;
             merged = Some(match merged {
@@ -141,7 +135,7 @@ impl StreamConnector {
         }
 
         // Binance
-        if self.exchanges.contains(&Exchange::Binance) || self.exchanges.contains(&Exchange::All) {
+        if self.exchanges.contains(&Exchange::Binance) {
             let config = self.build_config()?;
             let binance_stream = BinanceConnector::new(config).stream().await?;
             merged = Some(match merged {
