@@ -2,6 +2,7 @@ use clickhouse::{insert::Insert, Client, Row};
 use serde::Serialize;
 
 use crate::shared::logger::Logger;
+use crate::shared::utils::buffer_service::Callback;
 use crate::shared::{Price, Quantity, TimestampMS};
 use crate::trade::{TradeError, TradeEvent};
 
@@ -52,6 +53,12 @@ impl<'a> TradeEventRepo<'a> {
 
         insert.end().await?;
         Ok(())
+    }
+}
+
+impl<'a> Callback<TradeEvent, TradeError> for TradeEventRepo<'a> {
+    async fn on_buffer_flush(&self, data: &[TradeEvent]) -> Result<(), TradeError> {
+        self.save(data).await
     }
 }
 

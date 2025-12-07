@@ -6,13 +6,14 @@ mod signal;
 mod trade;
 
 use crate::connector::{Event, StreamConnector};
-use crate::level2::OrderBook;
+use crate::level2::{LevelUpdatedRepo, OrderBook};
+use crate::shared::utils::buffer_service::BufferService;
+use crate::shared::Exchange;
 use crate::signal::ArbitrageMonitor;
-use db::{DatabaseClient, SaverService};
+use crate::trade::TradeEventRepo;
+use db::{DatabaseClient};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
-use crate::shared::Exchange;
-
 
 // Ticker, multiply for price, multiply for quantity
 static TICKERS: [(&'static str, u32, u32); 4] = [
@@ -47,10 +48,14 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .build()
         .await
         .unwrap();
-    let mut service = SaverService::new(&client, 50_000);
+    let trade_saver = BufferService::new(TradeEventRepo::new(&client), 50_000);
+    let level2saver = BufferService::new(LevelUpdatedRepo::new(&client), 50_000);
     loop {
         let event = rx_events.recv().await.unwrap();
-        service.save(event).await.unwrap();
+        match event {
+            Event::Trade(v) => trade_saver.push(v).await.unwrap(),
+            Event::LevelUpdate(v) => level2saver.push(v).await.unwrap(),
+        };
     }
 }
 

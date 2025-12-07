@@ -1,5 +1,6 @@
 use crate::level2::{Level2Error, LevelUpdated};
 use crate::shared::logger::Logger;
+use crate::shared::utils::buffer_service::Callback;
 use clickhouse::error::Error;
 use clickhouse::insert::Insert;
 use clickhouse::Client;
@@ -52,6 +53,12 @@ impl<'a> LevelUpdatedRepo<'a> {
         }
         insert.end().await?;
         Ok(())
+    }
+}
+
+impl<'a> Callback<LevelUpdated, Level2Error> for LevelUpdatedRepo<'a> {
+    async fn on_buffer_flush(&self, data: &[LevelUpdated]) -> Result<(), Level2Error> {
+        self.save(data).await
     }
 }
 
