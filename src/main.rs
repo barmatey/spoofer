@@ -87,7 +87,7 @@ async fn main() {
 
     // Saver thread
     let saver_rx = tx_events.subscribe();
-    let _handle_saver = tokio::spawn(async move {
+    let handle_saver = tokio::spawn(async move {
         saver(saver_rx).await;
     });
 
@@ -100,7 +100,7 @@ async fn main() {
     // Ждем все задачи (они бесконечные)
     tokio::select! {
         res = handle_stream => println!("handle_stream: {:?}", res),
-        // res = handle_saver => println!("handle_saver: {:?}", res),
+        res = handle_saver => println!("handle_saver: {:?}", res),
         res = handle_processor => println!("handle_processor: {:?}", res),
     }
 }
