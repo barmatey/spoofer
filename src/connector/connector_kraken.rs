@@ -18,6 +18,7 @@ use crate::shared::logger::Logger;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
+use crate::shared::utils::now_timestamp_ns;
 
 #[derive(Debug, Deserialize)]
 struct BookSide {
@@ -110,6 +111,7 @@ impl KrakenConnector {
                     price: price as Price,
                     quantity: qty as Quantity,
                     timestamp: ts,
+                    received: now_timestamp_ns(),
                 };
                 result.push(Event::LevelUpdate(event));
             }
@@ -125,6 +127,7 @@ impl KrakenConnector {
                     price: price as Price,
                     quantity: qty as Quantity,
                     timestamp: ts,
+                    received: now_timestamp_ns(),
                 };
                 result.push(Event::LevelUpdate(event));
             }
@@ -166,6 +169,7 @@ impl KrakenConnector {
                 quantity: qty_f as Quantity,
                 timestamp: ts,
                 market_maker: side,
+                received: now_timestamp_ns(),
             };
 
             result.push(Event::Trade(event));

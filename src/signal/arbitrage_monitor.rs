@@ -101,6 +101,7 @@ mod tests {
     use super::*;
     use crate::level2::{LevelUpdated, OrderBook};
     use crate::shared::Side;
+    use crate::shared::utils::now_timestamp_ns;
 
     fn ev(exchange: Exchange, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
         LevelUpdated {
@@ -110,6 +111,7 @@ mod tests {
             price,
             quantity: qty,
             timestamp: 0,
+            received: now_timestamp_ns(),
         }
     }
 

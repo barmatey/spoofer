@@ -13,6 +13,7 @@ pub struct TradeEventRow {
     quantity: Quantity,
     timestamp: TimestampMS,
     market_maker: u8,
+    received: u64,
 }
 
 impl TradeEventRow {
@@ -24,6 +25,7 @@ impl TradeEventRow {
             quantity: ev.quantity,
             timestamp: ev.timestamp,
             market_maker: ev.market_maker as u8,
+            received: ev.received,
         }
     }
 }
@@ -68,6 +70,7 @@ pub async fn create_trade_event_table(
             price UInt64,
             quantity UInt64,
             timestamp UInt64,
+            received UInt64,
             market_maker UInt8
         ) ENGINE = MergeTree()
         ORDER BY (exchange, ticker, timestamp)

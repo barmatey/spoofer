@@ -13,6 +13,7 @@ struct LevelUpdateRow {
     price: u64,
     quantity: u64,
     timestamp: u64,
+    received: u64,
 }
 
 impl LevelUpdateRow {
@@ -24,6 +25,7 @@ impl LevelUpdateRow {
             price: ev.price,
             quantity: ev.quantity,
             timestamp: ev.timestamp,
+            received: ev.received,
         }
     }
 }
@@ -68,7 +70,8 @@ pub async fn create_level_updates_table(
             side UInt8,
             price UInt64,
             quantity UInt64,
-            timestamp UInt64
+            timestamp UInt64,
+            received UInt64
         ) ENGINE = MergeTree()
         ORDER BY (exchange, ticker, timestamp)
     "#,

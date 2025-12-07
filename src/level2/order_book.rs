@@ -79,6 +79,7 @@ mod tests {
     use super::*;
     use crate::level2::LevelUpdated;
     use crate::shared::Side;
+    use crate::shared::utils::now_timestamp_ns;
 
     fn event(exchange: Exchange, ticker: &str, side: Side, price: u64, qty: u64) -> LevelUpdated {
         LevelUpdated {
@@ -88,6 +89,7 @@ mod tests {
             price,
             quantity: qty,
             timestamp: 0,
+            received: now_timestamp_ns(),
         }
     }
 

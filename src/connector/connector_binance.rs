@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;
+use crate::shared::utils::now_timestamp_ns;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DepthUpdateMessage {
@@ -186,6 +187,7 @@ impl BinanceConnector {
                 price: price as Price,
                 quantity: quantity as Quantity,
                 timestamp: parsed.event_time,
+                received: now_timestamp_ns(),
             };
             result.push(Event::LevelUpdate(ev));
         }
@@ -201,6 +203,7 @@ impl BinanceConnector {
                 price: price as Price,
                 quantity: quantity as Quantity,
                 timestamp: parsed.event_time,
+                received: now_timestamp_ns(),
             };
             result.push(Event::LevelUpdate(ev));
         }
@@ -226,6 +229,7 @@ impl BinanceConnector {
             quantity: qty as Quantity,
             timestamp: trade.event_time,
             market_maker: [Side::Sell, Side::Buy][trade.is_buyer_maker as usize],
+            received: now_timestamp_ns(),
         };
         result.push(Event::Trade(event));
 

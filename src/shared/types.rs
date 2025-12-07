@@ -6,6 +6,8 @@ pub type Quantity = u64;
 
 pub type TimestampMS = u64;
 
+pub type TimestampNS = u64;
+
 pub type Period = (TimestampMS, TimestampMS);
 
 pub type Profit = i64;

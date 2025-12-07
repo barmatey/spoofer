@@ -111,6 +111,7 @@ mod tests {
     use super::*;
     use crate::level2::LevelUpdated;
     use crate::shared::Exchange;
+    use crate::shared::utils::now_timestamp_ns;
 
     fn event(side: Side, price: Price, qty: Quantity) -> LevelUpdated {
         LevelUpdated {
@@ -120,6 +121,7 @@ mod tests {
             price,
             quantity: qty,
             timestamp: 0,
+            received: now_timestamp_ns(),
         }
     }
 

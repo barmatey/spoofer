@@ -1,4 +1,4 @@
-use crate::shared::{Exchange, Price, Quantity, Side, TimestampMS};
+use crate::shared::{Exchange, Price, Quantity, Side, TimestampMS, TimestampNS};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -9,4 +9,5 @@ pub struct LevelUpdated {
     pub price: Price,
     pub quantity: Quantity,
     pub timestamp: TimestampMS,
+    pub received: TimestampNS,
 }

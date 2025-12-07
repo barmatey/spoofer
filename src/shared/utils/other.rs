@@ -8,6 +8,15 @@ pub fn now_timestamp() -> TimestampMS {
         .as_millis() as TimestampMS
 }
 
+pub fn now_timestamp_ns() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64
+}
+
+
 pub fn format_price(price: u64, decimals: usize) -> String {
     let factor = 10u64.pow(decimals as u32);
     let integer = price / factor;

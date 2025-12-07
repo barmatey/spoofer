@@ -51,6 +51,7 @@ mod tests {
     use super::*;
     use crate::level2::LevelUpdated;
     use crate::shared::{Exchange, Quantity};
+    use crate::shared::utils::now_timestamp_ns;
 
     fn make_event(price: Price, timestamp: TimestampMS, quantity: Quantity) -> LevelUpdated {
         LevelUpdated {
@@ -60,6 +61,7 @@ mod tests {
             side: crate::shared::Side::Buy,
             ticker: Arc::new("BTC/USDT".to_string()),
             exchange: Exchange::Binance,
+            received:  now_timestamp_ns(),
         }
     }
 

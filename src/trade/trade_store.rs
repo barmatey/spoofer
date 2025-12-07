@@ -56,6 +56,7 @@ impl TradeStore {
 mod tests {
     use super::*;
     use crate::shared::{Exchange, Side};
+    use crate::shared::utils::now_timestamp_ns;
 
     fn sample_trade(ts: TimestampMS, exchange: Exchange, ticker: &str) -> TradeEvent {
         TradeEvent {
@@ -65,6 +66,7 @@ mod tests {
             price: 100,
             quantity: 10,
             market_maker: Side::Buy,
+            received: now_timestamp_ns(),
         }
     }
 
