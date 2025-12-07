@@ -4,6 +4,7 @@ use crate::shared::logger::Logger;
 use crate::trade::create_trade_event_table;
 use clickhouse::Client;
 use tracing::Level;
+use crate::signal::arbitrage_monitor::create_arbitrage_signals_table;
 
 async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     let query_check = format!(
@@ -53,6 +54,7 @@ async fn init_database(client: &Client, db_name: &str, recreate: bool) -> Result
     }
     create_level_updates_table(client, &logger, db_name).await?;
     create_trade_event_table(client, &logger, db_name).await?;
+    create_arbitrage_signals_table(&client, &logger, db_name).await?;
     logger.info("Successful database initialisation");
     Ok(())
 }

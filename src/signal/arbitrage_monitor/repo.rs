@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use crate::shared::{Exchange, Price, TimestampMS};
 use crate::shared::logger::Logger;
 use crate::shared::utils::buffer_service::Callback;
 
