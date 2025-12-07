@@ -48,7 +48,7 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
         .build()
         .await
         .unwrap();
-    let trade_saver = BufferService::new(TradeEventRepo::new(&client), 50_000);
+    let trade_saver = BufferService::new(TradeEventRepo::new(&client), 1_000);
     let level2saver = BufferService::new(LevelUpdatedRepo::new(&client), 50_000);
     loop {
         let event = rx_events.recv().await.unwrap();

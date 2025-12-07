@@ -1,6 +1,6 @@
+use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::marker::PhantomData;
-use crossbeam::queue::SegQueue;
 
 pub trait Callback<T, E>: Send + Sync
 where
@@ -11,8 +11,9 @@ where
 
 pub struct BufferService<T, C, E>
 where
-    C: Callback<T, E>,
+    T: Send + Sync,
     E: Error + Send,
+    C: Callback<T, E>,
 {
     data: SegQueue<T>,
     buffer_size: usize,
@@ -39,7 +40,7 @@ where
         self.data.push(item);
 
         if self.data.len() >= self.buffer_size {
-           self.flush().await?;
+            self.flush().await?;
         }
 
         Ok(())
@@ -48,7 +49,7 @@ where
     pub async fn flush(&self) -> Result<(), E> {
         if !self.data.is_empty() {
             let mut data = Vec::with_capacity(self.buffer_size);
-            while let Some(item) = self.data.pop(){
+            while let Some(item) = self.data.pop() {
                 data.push(item);
             }
             self.callback.on_buffer_flush(&data).await?;
