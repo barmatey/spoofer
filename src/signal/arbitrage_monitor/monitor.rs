@@ -1,23 +1,9 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::now_timestamp;
-use crate::shared::{Exchange, Price, TimestampMS};
+use crate::shared::{Price};
 use std::sync::Arc;
-
-#[derive(Debug, Clone)]
-pub struct ArbitrageLeg {
-    pub exchange: Exchange,
-    pub ticker: Arc<String>,
-    pub price: Price,
-}
-
-#[derive(Debug, Clone)]
-pub struct ArbitrageSignal {
-    pub buy: ArbitrageLeg,
-    pub sell: ArbitrageLeg,
-    pub profit_pct: f32,
-    pub profit_abs: Option<f32>,
-    pub timestamp: TimestampMS,
-}
+use crate::signal::arbitrage_monitor::ArbitrageSignal;
+use crate::signal::arbitrage_monitor::signal::ArbitrageLeg;
 
 pub struct ArbitrageMonitor<'a> {
     book_a: &'a OrderBook,
@@ -107,7 +93,7 @@ mod tests {
     use super::*;
     use crate::level2::{LevelUpdated, OrderBook};
     use crate::shared::utils::now_timestamp_ns;
-    use crate::shared::Side;
+    use crate::shared::{Exchange, Side};
 
     fn ev(exchange: Exchange, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
         LevelUpdated {
