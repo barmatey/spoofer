@@ -1,11 +1,11 @@
 use crate::shared::logger::Logger;
 use crate::shared::utils::buffer_service::Callback;
 
-use clickhouse::Client;
-use clickhouse::error::Error;
-use clickhouse::insert::Insert;
-use serde::Serialize;
+use crate::signal::error::Error;
 use crate::signal::arbitrage_monitor::ArbitrageSignal;
+use clickhouse::insert::Insert;
+use clickhouse::Client;
+use serde::Serialize;
 
 #[derive(clickhouse::Row, Serialize)]
 struct ArbitrageSignalRow {
@@ -40,7 +40,6 @@ impl ArbitrageSignalRow {
     }
 }
 
-
 pub struct ArbitrageSignalRepo<'a> {
     client: &'a Client,
 }
@@ -73,7 +72,6 @@ impl<'a> Callback<ArbitrageSignal, Error> for ArbitrageSignalRepo<'a> {
     }
 }
 
-
 pub async fn create_arbitrage_signals_table(
     client: &Client,
     logger: &Logger,
@@ -102,5 +100,7 @@ pub async fn create_arbitrage_signals_table(
         db_name
     );
 
-    client.query(&query).execute().await
+    client.query(&query).execute().await?;
+
+    Ok(())
 }
