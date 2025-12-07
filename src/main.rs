@@ -9,11 +9,11 @@ use crate::connector::{Event, StreamConnector};
 use crate::level2::{LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::buffer_service::BufferService;
 use crate::shared::Exchange;
-use crate::signal::ArbitrageMonitor;
 use crate::trade::TradeEventRepo;
 use db::{DatabaseClient};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
+use crate::signal::arbitrage_monitor::ArbitrageMonitor;
 
 // Ticker, multiply for price, multiply for quantity
 static TICKERS: [(&'static str, u32, u32); 4] = [

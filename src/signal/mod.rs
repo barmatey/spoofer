@@ -1,2 +1,2 @@
-mod arbitrage_monitor;
+pub mod arbitrage_monitor;
 
