@@ -50,7 +50,7 @@ mod tests {
     use std::sync::Arc;
     use super::*;
     use crate::level2::LevelUpdated;
-    use crate::shared::Quantity;
+    use crate::shared::{Exchange, Quantity};
 
     fn make_event(price: Price, timestamp: TimestampMS, quantity: Quantity) -> LevelUpdated {
         LevelUpdated {
@@ -59,7 +59,7 @@ mod tests {
             timestamp,
             side: crate::shared::Side::Buy,
             ticker: Arc::new("BTC/USDT".to_string()),
-            exchange: Arc::new("Binance".to_string()),
+            exchange: Exchange::Binance,
         }
     }
 

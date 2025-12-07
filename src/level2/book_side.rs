@@ -110,10 +110,11 @@ mod tests {
     use std::sync::Arc;
     use super::*;
     use crate::level2::LevelUpdated;
+    use crate::shared::Exchange;
 
     fn event(side: Side, price: Price, qty: Quantity) -> LevelUpdated {
         LevelUpdated {
-            exchange: Arc::new("no_matter".to_string()),
+            exchange: Exchange::Binance,
             ticker: Arc::new("no_matter".to_string()),
             side,
             price,

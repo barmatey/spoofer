@@ -1,9 +1,9 @@
+use crate::shared::{Exchange, Price, Quantity, Side, TimestampMS};
 use std::sync::Arc;
-use crate::shared::{Price, Quantity, Side, TimestampMS};
 
 #[derive(Debug, Clone)]
 pub struct LevelUpdated {
-    pub exchange: Arc<String>,
+    pub exchange: Exchange,
     pub ticker: Arc<String>,
     pub side: Side,
     pub price: Price,

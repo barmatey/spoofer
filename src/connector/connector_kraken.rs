@@ -1,7 +1,7 @@
 use crate::connector::errors::{Error, ErrorHandler};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
-use crate::shared::{Price, Quantity, Side};
+use crate::shared::{Exchange, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use std::sync::Arc;
 
@@ -64,7 +64,7 @@ fn validate_depth(value: u8) -> Result<(), Error> {
 
 pub struct KrakenConnector {
     configs: TickerMap,
-    exchange_name: Arc<String>,
+    exchange_name: Exchange,
     logger: Logger,
     error_handlers: Vec<ErrorHandler>,
 }
@@ -76,7 +76,7 @@ impl KrakenConnector {
                 config.ticker_configs,
                 convert_ticker_into_kraken_symbol,
             ),
-            exchange_name: Arc::new("kraken".to_string()),
+            exchange_name: Exchange::Kraken,
             logger: Logger::new("kraken", config.log_level),
             error_handlers: config.error_handlers.clone(),
         }
@@ -105,7 +105,7 @@ impl KrakenConnector {
                 let qty = bid.qty * config.quantity_multiply;
                 let event = LevelUpdated {
                     ticker: Arc::clone(&config.ticker),
-                    exchange: Arc::clone(&self.exchange_name),
+                    exchange: self.exchange_name.clone(),
                     side: Side::Buy,
                     price: price as Price,
                     quantity: qty as Quantity,
@@ -119,7 +119,7 @@ impl KrakenConnector {
                 let qty = ask.qty * config.quantity_multiply;
                 let ts = parse_timestamp_from_date_string(&entry.timestamp)?;
                 let event = LevelUpdated {
-                    exchange: Arc::clone(&self.exchange_name),
+                    exchange: self.exchange_name.clone(),
                     ticker: Arc::clone(&config.ticker),
                     side: Side::Sell,
                     price: price as Price,
@@ -161,7 +161,7 @@ impl KrakenConnector {
 
             let event = TradeEvent {
                 ticker: Arc::clone(&config.ticker),
-                exchange: Arc::clone(&self.exchange_name),
+                exchange: self.exchange_name.clone(),
                 price: price_f as Price,
                 quantity: qty_f as Quantity,
                 timestamp: ts,

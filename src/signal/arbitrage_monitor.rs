@@ -1,11 +1,11 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::now_timestamp;
-use crate::shared::{Price, TimestampMS};
+use crate::shared::{Exchange, Price, TimestampMS};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ArbitrageLeg {
-    pub exchange: Arc<String>,
+    pub exchange: Exchange,
     pub ticker: Arc<String>,
     pub price: Price,
 }
@@ -80,12 +80,12 @@ impl<'a> ArbitrageMonitor<'a> {
 
         Some(ArbitrageSignal {
             buy: ArbitrageLeg {
-                exchange: Arc::clone(buy_book.exchange()),
+                exchange: buy_book.exchange().clone(),
                 ticker: Arc::clone(buy_book.ticker()),
                 price: buy_price,
             },
             sell: ArbitrageLeg {
-                exchange: Arc::clone(sell_book.exchange()),
+                exchange: sell_book.exchange().clone(),
                 ticker: Arc::clone(sell_book.ticker()),
                 price: sell_price,
             },
@@ -102,9 +102,9 @@ mod tests {
     use crate::level2::{LevelUpdated, OrderBook};
     use crate::shared::Side;
 
-    fn ev(exchange: &str, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
+    fn ev(exchange: Exchange, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
         LevelUpdated {
-            exchange: Arc::new(exchange.to_string()),
+            exchange,
             ticker: Arc::new(ticker.to_string()),
             side,
             price,
@@ -115,19 +115,19 @@ mod tests {
 
     #[test]
     fn test_no_opportunity() {
-        let mut a = OrderBook::new("binance", "BTC/USDT", 10);
-        let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
+        let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
+        let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
         // A: bid=99, ask=100
-        a.update(&ev("binance", "BTC/USDT", Side::Buy, 99, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Buy, 99, 1))
             .unwrap();
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
 
         // B: bid=99, ask=100
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 99, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 99, 1))
             .unwrap();
-        b.update(&ev("kraken", "BTC/USDT", Side::Sell, 100, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.001);
@@ -137,57 +137,57 @@ mod tests {
 
     #[test]
     fn test_simple_a_to_b() {
-        let mut a = OrderBook::new("binance", "BTC/USDT", 10);
-        let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
+        let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
+        let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
         // A: buy at 100
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
         // B: sell at 103
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 103, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 103, 1))
             .unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
         let sig = mon.execute().expect("should detect arbitrage");
 
-        assert_eq!(*sig.buy.exchange, "binance");
-        assert_eq!(*sig.sell.exchange, "kraken");
+        assert_eq!(sig.buy.exchange, Exchange::Binance);
+        assert_eq!(sig.sell.exchange, Exchange::Kraken);
         assert_eq!(sig.profit_abs, Some(3.0));
         assert!((sig.profit_pct - 0.03).abs() < 1e-6);
     }
 
     #[test]
     fn test_simple_b_to_a() {
-        let mut a = OrderBook::new("binance", "BTC/USDT", 10);
-        let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
+        let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
+        let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
         // B: ask = 100
-        b.update(&ev("kraken", "BTC/USDT", Side::Sell, 100, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
         // A: bid = 105
-        a.update(&ev("binance", "BTC/USDT", Side::Buy, 105, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Buy, 105, 1))
             .unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
 
         let sig = mon.execute().expect("should detect arbitrage");
-        assert_eq!(*sig.buy.exchange, "kraken");
-        assert_eq!(*sig.sell.exchange, "binance");
+        assert_eq!(sig.buy.exchange, Exchange::Kraken);
+        assert_eq!(sig.sell.exchange, Exchange::Binance);
         assert_eq!(sig.profit_abs, Some(5.0));
         assert!((sig.profit_pct - 0.05).abs() < 1e-6);
     }
 
     #[test]
     fn test_profit_below_threshold() {
-        let mut a = OrderBook::new("binance", "BTC/USDT", 10);
-        let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
+        let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
+        let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
         // A: ask = 100
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 10_000, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 10_000, 1))
             .unwrap();
         // B: bid = 100.05
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 10_005, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 10_005, 1))
             .unwrap(); // <--- если Price = 10000 => 100.00
 
         // threshold = 0.001 = 0.1%
@@ -198,23 +198,23 @@ mod tests {
 
     #[test]
     fn test_uses_real_best_prices() {
-        let mut a = OrderBook::new("binance", "BTC/USDT", 10);
-        let mut b = OrderBook::new("kraken", "BTC/USDT", 10);
+        let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
+        let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
         // An asks: 100, 101, 102 → best = 100
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 102, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 102, 1))
             .unwrap();
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 101, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 101, 1))
             .unwrap();
-        a.update(&ev("binance", "BTC/USDT", Side::Sell, 100, 1))
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
 
         // B bids: 99, 103, 101 → best = 103
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 99, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 99, 1))
             .unwrap();
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 103, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 103, 1))
             .unwrap();
-        b.update(&ev("kraken", "BTC/USDT", Side::Buy, 101, 1))
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 101, 1))
             .unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
@@ -228,12 +228,12 @@ mod tests {
     #[test]
     fn test_arbitrage_monitor_bug_infinite_profit() {
         // Создаём 2 книги
-        let book_a = OrderBook::new("binance", "btc/usdt", 10);
-        let mut book_b = OrderBook::new("kraken", "btc/usdt", 10);
+        let book_a = OrderBook::new(Exchange::Binance, "btc/usdt", 10);
+        let mut book_b = OrderBook::new(Exchange::Kraken, "btc/usdt", 10);
 
         // book_b имеет только bid-уровень
         book_b
-            .update(&ev("kraken", "btc/usdt", Side::Buy, 100, 1))
+            .update(&ev(Exchange::Kraken, "btc/usdt", Side::Buy, 100, 1))
             .unwrap();
 
         // book_a остаётся с default ask = 0 (пустая книга)

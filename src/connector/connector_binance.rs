@@ -10,7 +10,7 @@ use crate::connector::services::websocket::{connect_websocket, Connection};
 use crate::connector::Event;
 use crate::level2::LevelUpdated;
 use crate::shared::logger::Logger;
-use crate::shared::{Price, Quantity, Side};
+use crate::shared::{Exchange, Price, Quantity, Side};
 use crate::trade::TradeEvent;
 use reqwest::get;
 use serde::{Deserialize, Serialize};
@@ -130,7 +130,7 @@ impl<'a> BinanceUrlBuilder<'a> {
 }
 
 pub struct BinanceConnector {
-    exchange: Arc<String>,
+    exchange: Exchange,
     configs: TickerMap,
     logger: Logger,
     error_handlers: Vec<ErrorHandler>,
@@ -144,7 +144,7 @@ impl BinanceConnector {
                 convert_ticker_into_binance_symbol,
             ),
             logger: Logger::new("binance", config.log_level),
-            exchange: Arc::new("binance".to_string()),
+            exchange: Exchange::Binance,
             error_handlers: config.error_handlers,
         }
     }
@@ -180,7 +180,7 @@ impl BinanceConnector {
             let quantity = parse_number(quantity)? * ticker_config.quantity_multiply;
 
             let ev = LevelUpdated {
-                exchange: Arc::clone(&self.exchange),
+                exchange: self.exchange.clone(),
                 ticker: Arc::clone(&ticker_config.ticker),
                 side: Side::Buy,
                 price: price as Price,
@@ -196,7 +196,7 @@ impl BinanceConnector {
 
             let ev = LevelUpdated {
                 ticker: Arc::clone(&ticker_config.ticker),
-                exchange: Arc::clone(&self.exchange),
+                exchange: self.exchange.clone(),
                 side: Side::Sell,
                 price: price as Price,
                 quantity: quantity as Quantity,
@@ -221,7 +221,7 @@ impl BinanceConnector {
 
         let event = TradeEvent {
             ticker: Arc::clone(&ticker_config.ticker),
-            exchange: Arc::clone(&self.exchange),
+            exchange: self.exchange.clone(),
             price: price as Price,
             quantity: qty as Quantity,
             timestamp: trade.event_time,

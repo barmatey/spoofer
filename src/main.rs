@@ -5,12 +5,13 @@ mod shared;
 mod signal;
 mod trade;
 
-use crate::connector::{Event, Exchange, StreamConnector};
+use crate::connector::{Event, StreamConnector};
 use crate::level2::OrderBook;
 use crate::signal::ArbitrageMonitor;
 use db::{DatabaseClient, SaverService};
 use futures_util::StreamExt;
 use tokio::sync::broadcast;
+use crate::shared::Exchange;
 
 static TICKERS: [(&'static str, u32, u32); 4] = [
     ("btc/usdt", 100, 1_000_000),
@@ -21,7 +22,7 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
 
 async fn stream(tx_events: broadcast::Sender<Event>) {
     let mut stream = StreamConnector::new()
-        .exchanges(&[Exchange::All])
+        .exchanges(&[Exchange::Binance, Exchange::Kraken])
         .tickers(&TICKERS)
         .subscribe_depth(10)
         .subscribe_trades()
@@ -54,8 +55,8 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 async fn processor(mut rx_events: broadcast::Receiver<Event>) {
     let mut books = vec![];
     for (ticker, _, _) in TICKERS.iter() {
-        let ob1 = OrderBook::new("kraken", ticker, 10);
-        let ob2 = OrderBook::new("binance", ticker, 10);
+        let ob1 = OrderBook::new(Exchange::Binance, ticker, 10);
+        let ob2 = OrderBook::new(Exchange::Kraken, ticker, 10);
         books.push((ob1, ob2));
     }
     loop {
@@ -86,7 +87,7 @@ async fn main() {
 
     // Saver thread
     let saver_rx = tx_events.subscribe();
-    let handle_saver = tokio::spawn(async move {
+    let _handle_saver = tokio::spawn(async move {
         saver(saver_rx).await;
     });
 

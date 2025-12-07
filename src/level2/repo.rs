@@ -7,7 +7,7 @@ use serde::Serialize;
 
 #[derive(clickhouse::Row, Serialize)]
 struct LevelUpdateRow {
-    exchange: String,
+    exchange: u8,
     ticker: String,
     side: u8,
     price: u64,
@@ -18,7 +18,7 @@ struct LevelUpdateRow {
 impl LevelUpdateRow {
     pub fn from_level_updated(ev: &LevelUpdated) -> Self {
         Self {
-            exchange: ev.exchange.to_string(),
+            exchange: ev.exchange.clone() as u8,
             ticker: ev.ticker.to_string(),
             side: ev.side as u8,
             price: ev.price,

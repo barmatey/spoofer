@@ -1,5 +1,6 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::format_price;
+use crate::shared::Exchange;
 
 pub fn display_books(books: &[&OrderBook], decimals: usize) {
     print!("\x1b[H\x1b[2J");
@@ -19,7 +20,12 @@ pub fn display_books(books: &[&OrderBook], decimals: usize) {
             format!("{}", format_price(book.asks().best_price(), decimals))
         };
 
-        println!("{:<12} {:>12} {:>12}", book.exchange(), bid, ask);
+        let exc = match book.exchange() {
+            Exchange::Binance => "binance",
+            Exchange::Kraken => "kraken",
+        };
+
+        println!("{:<12} {:>12} {:>12}", exc, bid, ask);
     }
 
     std::io::Write::flush(&mut std::io::stdout()).unwrap();
