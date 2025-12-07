@@ -98,8 +98,8 @@ mod tests {
         let mut ob = OrderBook::new(Exchange::Binance, "BTCUSDT", 5);
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Buy, 100, 10)).unwrap();
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Sell, 200, 5)).unwrap();
-        assert_eq!(ob.bids().best_price(), 100);
-        assert_eq!(ob.asks().best_price(), 200);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
+        assert_eq!(ob.asks().best_price().unwrap(), 200);
     }
 
     #[test]
@@ -109,8 +109,8 @@ mod tests {
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Buy, 100, 20)).unwrap();
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Sell, 200, 5)).unwrap();
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Sell, 200, 0)).unwrap();
-        assert_eq!(ob.asks().best_price(), Price::MAX);
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.asks().best_price(), None);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
 
     }
 
@@ -120,15 +120,15 @@ mod tests {
 
         // Совпадает инструмент
         ob.update_if_instrument_matches(&event(Exchange::Binance, "BTCUSDT", Side::Buy, 100, 10)).unwrap();
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
 
         // Несовпадает тикер
         ob.update_if_instrument_matches(&event(Exchange::Binance, "ETHUSDT", Side::Buy, 150, 5)).unwrap();
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
 
         // Несовпадает биржа
         ob.update_if_instrument_matches(&event(Exchange::Kraken, "BTCUSDT", Side::Buy, 200, 5)).unwrap();
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
     }
 
     #[test]
@@ -137,11 +137,11 @@ mod tests {
 
         // Совпадает инструмент
         ob.update_or_miss(&&event(Exchange::Binance, "BTCUSDT", Side::Buy, 100, 10));
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
 
         // Несовпадает инструмент, ничего не должно происходить
         ob.update_or_miss(&&event(Exchange::Kraken, "BTCUSDT", Side::Buy, 200, 5));
-        assert_eq!(ob.bids().best_price(), 100);
+        assert_eq!(ob.bids().best_price().unwrap(), 100);
     }
 
     #[test]

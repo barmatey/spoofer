@@ -49,15 +49,17 @@ impl<'a> ArbitrageMonitor<'a> {
         let bid_b = self.book_b.bids().best_price();
         let ask_b = self.book_b.asks().best_price();
 
-        if bid_a == 0 || bid_b == 0 || ask_a == Price::MAX || ask_b == Price::MAX {
+        if bid_a == None || bid_b == None || ask_a == None || ask_b == None {
             return None;
         }
 
-        if let Some(sig) = self.check_pair(self.book_a, ask_a, self.book_b, bid_b) {
+        if let Some(sig) = self.check_pair(self.book_a, ask_a.unwrap(), self.book_b, bid_b.unwrap())
+        {
             return Some(sig);
         }
 
-        if let Some(sig) = self.check_pair(self.book_b, ask_b, self.book_a, bid_a) {
+        if let Some(sig) = self.check_pair(self.book_b, ask_b.unwrap(), self.book_a, bid_a.unwrap())
+        {
             return Some(sig);
         }
 

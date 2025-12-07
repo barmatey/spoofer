@@ -11,13 +11,13 @@ pub fn display_books(books: &[&OrderBook], decimals: usize) {
         let bid = if book.bids().is_empty() {
             "-".to_string()
         } else {
-            format!("{}", format_price(book.bids().best_price(), decimals))
+            format!("{}", format_price(book.bids().best_price().unwrap(), decimals))
         };
 
         let ask = if book.asks().is_empty() {
             "-".to_string()
         } else {
-            format!("{}", format_price(book.asks().best_price(), decimals))
+            format!("{}", format_price(book.asks().best_price().unwrap(), decimals))
         };
 
         let exc = match book.exchange() {

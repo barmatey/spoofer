@@ -8,23 +8,19 @@ use std::collections::{BTreeSet, HashMap};
 pub struct BookSide {
     levels: HashMap<Price, Quantity>,
     sorted_prices: BTreeSet<Price>,
-    best_price: Price,
+    best_price: Option<Price>,
     side: Side,
     max_depth: usize,
 }
 
 impl BookSide {
     pub fn new(side: Side, max_depth: usize) -> Self {
-        let best_price = match side {
-            Side::Buy => 0,
-            Side::Sell => Price::MAX,
-        };
         Self {
             levels: HashMap::new(),
             sorted_prices: BTreeSet::new(),
             side,
             max_depth,
-            best_price,
+            best_price: None,
         }
     }
 
@@ -32,10 +28,19 @@ impl BookSide {
         self.sorted_prices.remove(&price);
         self.levels.remove(&price);
 
-        if price == self.best_price {
+        if price == self.best_price.unwrap() {
             self.best_price = match self.side {
-                Side::Buy => self.sorted_prices.iter().rev().next().copied().unwrap_or(0),
-                Side::Sell => self.sorted_prices.iter().next().copied().unwrap_or(Price::MAX),
+                Side::Buy => self
+                    .sorted_prices
+                    .iter()
+                    .rev()
+                    .next()
+                    .copied(),
+                Side::Sell => self
+                    .sorted_prices
+                    .iter()
+                    .next()
+                    .copied()
             };
         }
     }
@@ -53,8 +58,8 @@ impl BookSide {
         }
 
         match self.side {
-            Side::Buy => self.best_price = self.best_price.max(price),
-            Side::Sell => self.best_price = self.best_price.min(price),
+            Side::Buy => self.best_price = Some(self.best_price.unwrap_or(0).max(price)),
+            Side::Sell => self.best_price = Some(self.best_price.unwrap_or(Price::MAX).min(price)),
         }
     }
 
@@ -84,7 +89,7 @@ impl BookSide {
         }
     }
 
-    pub fn best_price(&self) -> Price {
+    pub fn best_price(&self) -> Option<Price> {
         self.best_price
     }
 
@@ -107,11 +112,11 @@ impl BookSide {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use super::*;
     use crate::level2::LevelUpdated;
-    use crate::shared::Exchange;
     use crate::shared::utils::now_timestamp_ns;
+    use crate::shared::Exchange;
+    use std::sync::Arc;
 
     fn event(side: Side, price: Price, qty: Quantity) -> LevelUpdated {
         LevelUpdated {
@@ -133,7 +138,7 @@ mod tests {
         book.update(&event(Side::Buy, 105, 20)).unwrap();
 
         // Проверка уровня и best_price
-        assert_eq!(book.best_price(), 105);
+        assert_eq!(book.best_price().unwrap(), 105);
         assert_eq!(book.levels[&100], 10);
         assert_eq!(book.levels[&105], 20);
 
@@ -153,7 +158,7 @@ mod tests {
         book.update(&event(Side::Sell, 200, 60)).unwrap();
 
         assert_eq!(book.levels[&200], 60);
-        assert_eq!(book.best_price(), 150); // минимальная цена для Sell
+        assert_eq!(book.best_price().unwrap(), 150); // минимальная цена для Sell
     }
 
     #[test]
@@ -165,12 +170,12 @@ mod tests {
 
         // Удаляем лучший уровень
         book.update(&event(Side::Buy, 105, 0)).unwrap();
-        assert_eq!(book.best_price(), 100);
+        assert_eq!(book.best_price().unwrap(), 100);
         assert!(!book.levels.contains_key(&105));
 
         // Удаляем последний уровень
         book.update(&event(Side::Buy, 100, 0)).unwrap();
-        assert_eq!(book.best_price(), 0);
+        assert_eq!(book.best_price(), None);
         assert!(book.levels.is_empty());
     }
 
@@ -186,7 +191,7 @@ mod tests {
         assert_eq!(book.sorted_prices.len(), 3);
         // Для Sell удаляется самый дорогой
         assert!(!book.levels.contains_key(&115));
-        assert_eq!(book.best_price(), 100);
+        assert_eq!(book.best_price().unwrap(), 100);
     }
 
     #[test]
@@ -263,19 +268,19 @@ mod tests {
         book.update(&event(Side::Buy, 110, 15)).unwrap();
 
         // Проверяем начальный best_price
-        assert_eq!(book.best_price(), 110);
+        assert_eq!(book.best_price().unwrap(), 110);
 
         // Удаляем текущий лучший уровень
         book.update(&event(Side::Buy, 110, 0)).unwrap();
-        assert_eq!(book.best_price(), 105);
+        assert_eq!(book.best_price().unwrap(), 105);
 
         // Удаляем следующий лучший уровень
         book.update(&event(Side::Buy, 105, 0)).unwrap();
-        assert_eq!(book.best_price(), 100);
+        assert_eq!(book.best_price().unwrap(), 100);
 
         // Удаляем последний уровень
         book.update(&event(Side::Buy, 100, 0)).unwrap();
-        assert_eq!(book.best_price(), 0);
+        assert_eq!(book.best_price(), None);
         assert!(book.levels.is_empty());
     }
     #[test]
@@ -288,21 +293,19 @@ mod tests {
         book.update(&event(Side::Sell, 190, 15)).unwrap();
 
         // Проверяем начальный best_price (для Sell — минимальная цена)
-        assert_eq!(book.best_price(), 180);
+        assert_eq!(book.best_price().unwrap(), 180);
 
         // Удаляем текущий лучший уровень (минимальный)
         book.update(&event(Side::Sell, 180, 0)).unwrap();
-        assert_eq!(book.best_price(), 190);
+        assert_eq!(book.best_price().unwrap(), 190);
 
         // Удаляем следующий лучший уровень
         book.update(&event(Side::Sell, 190, 0)).unwrap();
-        assert_eq!(book.best_price(), 200);
+        assert_eq!(book.best_price().unwrap(), 200);
 
         // Удаляем последний уровень
         book.update(&event(Side::Sell, 200, 0)).unwrap();
-        assert_eq!(book.best_price(), Price::MAX);
+        assert_eq!(book.best_price(), None);
         assert!(book.levels.is_empty());
     }
-
-
 }
