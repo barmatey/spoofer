@@ -1,7 +1,6 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::now_timestamp;
 use crate::shared::{Exchange, Price, TimestampMS};
-use std::path::Component::Prefix;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -149,6 +148,12 @@ mod tests {
         let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
         let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
+        // Fake levels
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Buy, 99, 1))
+            .unwrap();
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Sell, 104, 2))
+            .unwrap();
+
         // A: buy at 100
         a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
@@ -171,11 +176,18 @@ mod tests {
         let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
         let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
 
+        // Fake levels
+
         // B: ask = 100
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Buy, 99, 1))
+            .unwrap();
         b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Sell, 100, 1))
             .unwrap();
+
         // A: bid = 105
         a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Buy, 105, 1))
+            .unwrap();
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 111, 2))
             .unwrap();
 
         let mon = ArbitrageMonitor::new(&a, &b, 0.0);
@@ -209,6 +221,11 @@ mod tests {
     fn test_uses_real_best_prices() {
         let mut a = OrderBook::new(Exchange::Binance, "BTC/USDT", 10);
         let mut b = OrderBook::new(Exchange::Kraken, "BTC/USDT", 10);
+
+        a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Buy, 99, 1))
+            .unwrap();
+        b.update(&ev(Exchange::Kraken, "BTC/USDT", Side::Sell, 103, 1))
+            .unwrap();
 
         // An asks: 100, 101, 102 → best = 100
         a.update(&ev(Exchange::Binance, "BTC/USDT", Side::Sell, 102, 1))
