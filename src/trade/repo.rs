@@ -63,7 +63,7 @@ pub async fn create_trade_event_table(
     let query = format!(
         r#"
         CREATE TABLE IF NOT EXISTS {}.trade_events (
-            exchange String,
+            exchange UInt8,
             ticker String,
             price UInt64,
             quantity UInt64,

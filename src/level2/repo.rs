@@ -63,7 +63,7 @@ pub async fn create_level_updates_table(
     let query = format!(
         r#"
         CREATE TABLE IF NOT EXISTS {}.level_updates (
-            exchange String,
+            exchange UInt8,
             ticker String,
             side UInt8,
             price UInt64,

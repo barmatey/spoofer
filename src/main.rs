@@ -67,7 +67,7 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
                 for pair in books.iter_mut() {
                     pair.0.update_or_miss(&v);
                     pair.1.update_or_miss(&v);
-                    let signal = ArbitrageMonitor::new(&pair.0, &pair.1, 0.0002).execute();
+                    let signal = ArbitrageMonitor::new(&pair.0, &pair.1, 0.0005).execute();
                     signal.map(|x| println!("{:?}", x));
                 }
             }
