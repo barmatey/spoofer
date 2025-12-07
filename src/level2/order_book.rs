@@ -78,7 +78,7 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::level2::LevelUpdated;
-    use crate::shared::Side;
+    use crate::shared::{Price, Side};
     use crate::shared::utils::now_timestamp_ns;
 
     fn event(exchange: Exchange, ticker: &str, side: Side, price: u64, qty: u64) -> LevelUpdated {
@@ -109,7 +109,9 @@ mod tests {
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Buy, 100, 20)).unwrap();
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Sell, 200, 5)).unwrap();
         ob.update(&event(Exchange::Binance, "BTCUSDT", Side::Sell, 200, 0)).unwrap();
-        assert_eq!(ob.asks().best_price(), 0);
+        assert_eq!(ob.asks().best_price(), Price::MAX);
+        assert_eq!(ob.bids().best_price(), 100);
+
     }
 
     #[test]

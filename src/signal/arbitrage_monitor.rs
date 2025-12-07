@@ -1,6 +1,7 @@
 use crate::level2::OrderBook;
 use crate::shared::utils::now_timestamp;
 use crate::shared::{Exchange, Price, TimestampMS};
+use std::path::Component::Prefix;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -47,6 +48,10 @@ impl<'a> ArbitrageMonitor<'a> {
         let ask_a = self.book_a.asks().best_price();
         let bid_b = self.book_b.bids().best_price();
         let ask_b = self.book_b.asks().best_price();
+
+        if bid_a == 0 || bid_b == 0 || ask_a == Price::MAX || ask_b == Price::MAX {
+            return None;
+        }
 
         if let Some(sig) = self.check_pair(self.book_a, ask_a, self.book_b, bid_b) {
             return Some(sig);
@@ -100,8 +105,8 @@ impl<'a> ArbitrageMonitor<'a> {
 mod tests {
     use super::*;
     use crate::level2::{LevelUpdated, OrderBook};
-    use crate::shared::Side;
     use crate::shared::utils::now_timestamp_ns;
+    use crate::shared::Side;
 
     fn ev(exchange: Exchange, ticker: &str, side: Side, price: Price, qty: u64) -> LevelUpdated {
         LevelUpdated {
