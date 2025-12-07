@@ -1,10 +1,10 @@
 use crate::db::errors::Error;
 use crate::level2::create_level_updates_table;
 use crate::shared::logger::Logger;
+use crate::signal::arbitrage_monitor::create_arbitrage_signals_table;
 use crate::trade::create_trade_event_table;
 use clickhouse::Client;
 use tracing::Level;
-use crate::signal::arbitrage_monitor::create_arbitrage_signals_table;
 
 async fn create_database(client: &Client, logger: &Logger, db_name: &str) -> Result<(), Error> {
     let query_check = format!(
@@ -64,6 +64,7 @@ pub struct DatabaseClient {
     password: String,
     user: String,
     db_name: String,
+    recreate: bool,
 }
 
 impl DatabaseClient {
@@ -73,6 +74,7 @@ impl DatabaseClient {
             password: "".to_string(),
             user: "".to_string(),
             db_name: "".to_string(),
+            recreate: false,
         }
     }
     pub fn with_url(mut self, url: &str) -> Self {
@@ -95,12 +97,17 @@ impl DatabaseClient {
         self
     }
 
+    pub fn recreate(mut self) -> Self {
+        self.recreate = true;
+        self
+    }
+
     pub async fn build(self) -> Result<Client, Error> {
         let client = Client::default()
             .with_user(&self.user)
             .with_password(&self.password)
             .with_url(&self.url);
-        init_database(&client, &self.db_name, true).await?;
+        init_database(&client, &self.db_name, self.recreate).await?;
         Ok(client.with_database(&self.db_name))
     }
 }

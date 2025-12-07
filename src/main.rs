@@ -75,8 +75,9 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
         let ob2 = OrderBook::new(Exchange::Kraken, ticker, 10);
         books.push((ob1, ob2));
     }
+    let signal_saver = BufferService::new(ArbitrageSignalRepo::new(&client), 10000);
+
     loop {
-        let signal_saver = BufferService::new(ArbitrageSignalRepo::new(&client), 100);
         let event = rx_events.recv().await.unwrap();
         match event {
             Event::Trade(_v) => {}
@@ -85,10 +86,10 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
                     pair.0.update_or_miss(&v);
                     pair.1.update_or_miss(&v);
                     let signal = ArbitrageMonitor::new(&pair.0, &pair.1, 0.0002).execute();
-                    signal.map(async |x| {
-                        println!("{:?}", x);
-                        signal_saver.push(x).await.unwrap();
-                    });
+                    if let Some(s) = signal {
+                        println!("{:?}", s);
+                        signal_saver.push(s).await.unwrap();
+                    }
                 }
             }
         }
