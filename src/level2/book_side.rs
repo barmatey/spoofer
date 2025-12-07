@@ -28,19 +28,10 @@ impl BookSide {
         self.sorted_prices.remove(&price);
         self.levels.remove(&price);
 
-        if price == self.best_price.unwrap() {
+        if Some(price) == self.best_price {
             self.best_price = match self.side {
-                Side::Buy => self
-                    .sorted_prices
-                    .iter()
-                    .rev()
-                    .next()
-                    .copied(),
-                Side::Sell => self
-                    .sorted_prices
-                    .iter()
-                    .next()
-                    .copied()
+                Side::Buy => self.sorted_prices.iter().rev().next().copied(),
+                Side::Sell => self.sorted_prices.iter().next().copied(),
             };
         }
     }
@@ -57,10 +48,13 @@ impl BookSide {
             }
         }
 
-        match self.side {
-            Side::Buy => self.best_price = Some(self.best_price.unwrap_or(0).max(price)),
-            Side::Sell => self.best_price = Some(self.best_price.unwrap_or(Price::MAX).min(price)),
-        }
+        self.best_price = match self.best_price {
+            Some(current) => match self.side {
+                Side::Buy => Some(current.max(price)),
+                Side::Sell => Some(current.min(price)),
+            },
+            None => Some(price),
+        };
     }
 
     fn evict_extra_levels(&mut self) {
