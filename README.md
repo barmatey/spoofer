@@ -1,6 +1,6 @@
 # Spoofer
 
-Hi!
+Hi!  
 I’m working on this project to test how good Rust can be for trading services (spoiler: it’s really good). If you have
 interesting ideas to improve the library, or if you’re a company looking to build something tailored for your needs,
 feel free to reach out to me on [Telegram](https://t.me/iyufedotov) or [LinkedIn](https://www.linkedin.com/in/barmatey/). Thanks!
