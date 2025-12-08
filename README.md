@@ -79,7 +79,7 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
 - Keep the `broadcast` buffer large enough for peak events (example uses `50_000`).
 - Prefer lightweight event structs (Arc\<String\> for ticker avoids clones).
 - `subscribe_depth(10)` configures L2 depth to maintain for each book.
-- Write tickers in lowercase using / as a delimiter. They will later be automatically converted to each exchange's specific format.
+- Write tickers in lowercase using `/` as a delimiter. They will later be automatically converted to each exchange's specific format.
 
 ---
 
@@ -178,7 +178,7 @@ pub struct ArbitrageSignal {
     pub buy: ArbitrageLeg,
     pub sell: ArbitrageLeg,
     pub profit_pct: f32,
-    pub profit_abs: Option<f32>,
+    pub profit_abs: f32,
     pub timestamp: TimestampMS,
 }
 ```
