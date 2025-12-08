@@ -1,8 +1,12 @@
 # Spoofer
 
-Short, practical guide to understand and use the Rust-based streaming + saver + arbitrage pipeline. Focused on user workflows and concrete code snippets so you can jump straight into the system.
+Hi!
+I’m working on this project to test how good Rust can be for trading services (spoiler: it’s really good). If you have
+interesting ideas to improve the library, or if you’re a company looking to build something tailored for your needs,
+feel free to reach out to me on [Telegram](https://t.me/iyufedotov) or [LinkedIn](https://www.linkedin.com/in/barmatey/). Thanks!
 
 ## Table of Contents
+
 1. [Subscribe data stream](#subscribe-data-stream)
 2. [Save events](#save-events)
 3. [Check arbitrage opportunities](#check-arbitrage-opportunities)
@@ -10,7 +14,8 @@ Short, practical guide to understand and use the Rust-based streaming + saver + 
 
 ## Subscribe data stream
 
-**Purpose / user story:** get live trade and L2 (order book level) updates from configured exchanges and tickers and publish them onto an in-process broadcast channel so background workers can consume them.
+**User story:** get live trade and L2 (order book level) updates from configured exchanges and tickers and publish them
+onto an in-process broadcast channel so background workers can consume them.
 
 **Event models** (what you will receive from the connector):
 
@@ -41,8 +46,8 @@ The connector emits a simple `Event` enum (consumed by the app):
 ```rust
 // pattern seen in code (actual enum lives in connector module)
 match event {
-    Event::Trade(v) => {/* TradeEvent */},
-    Event::LevelUpdate(v) => {/* LevelUpdated */},
+Event::Trade(v) => {/* TradeEvent */},
+Event::LevelUpdate(v) => {/* LevelUpdated */},
 }
 ```
 
@@ -75,20 +80,24 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
 ```
 
 **Explanation of numbers next to tickers:**
-- The first number (e.g., 100 for btc/usdt) is a `price multiplier`: prices are scaled by this factor to store as integers instead of floats for precision.
-- The second number (e.g., 1_000_000) is a `quantity multiplier`: trade quantities are scaled similarly to avoid floating-point rounding errors.
+
+- The first number (e.g., 100 for btc/usdt) is a `price multiplier`: prices are scaled by this factor to store as
+  integers instead of floats for precision.
+- The second number (e.g., 1_000_000) is a `quantity multiplier`: trade quantities are scaled similarly to avoid
+  floating-point rounding errors.
 - This allows the system to handle fractional prices and volumes precisely without floating-point inaccuracies.
 
 **Notes / best practices:**
+
 - Keep the `broadcast` buffer large enough for peak events (example uses `50_000`).
 - Prefer lightweight event structs (Arc\<String\> for ticker avoids clones).
 - `subscribe_depth(10)` configures L2 depth to maintain for each book.
-- Write tickers in lowercase using `/` as a delimiter. They will later be automatically converted to each exchange's specific format.
-
+- Write tickers in lowercase using `/` as a delimiter. They will later be automatically converted to each exchange's
+  specific format.
 
 ## Save events
 
-**Purpose / user story:** persist incoming events in batches to ClickHouse using `BufferService` and repository objects.
+**User story:** persist incoming events in batches to ClickHouse using `BufferService` and repository objects.
 
 **Relevant snippet** — saver worker:
 
@@ -120,7 +129,9 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 ```
 
 **Notes:**
-- `BufferService` batches and flushes to the repo for throughput. Tune batch sizes to trade volume and ClickHouse write throughput.
+
+- `BufferService` batches and flushes to the repo for throughput. Tune batch sizes to trade volume and ClickHouse write
+  throughput.
 - Repos (`TradeEventRepo`, `LevelUpdatedRepo`) encapsulate schema and insert logic — keep them small and stable.
 - On errors, prefer to log + backoff rather than panic in production; the example uses `.unwrap()` for clarity.
 
@@ -128,9 +139,11 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 
 ## Check arbitrage opportunities
 
-**Purpose / user story:** maintain an in-memory order-book per exchange and ticker, compare book tops to detect cross-exchange spreads that exceed a configured threshold, emit `ArbitrageSignal` events and persist them.
+**User story:** maintain an in-memory order-book per exchange and ticker, compare book tops to detect cross-exchange
+spreads that exceed a configured threshold, emit `ArbitrageSignal` events and persist them.
 
 **How it works (flow):**
+
 1. Two `OrderBook` instances are created per ticker (one per exchange).
 2. On each `LevelUpdated` event, update both books via `update_or_miss`.
 3. Run `ArbitrageMonitor::new(&book_a, &book_b, threshold).execute()`.
@@ -167,7 +180,9 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
 ```
 
 **Model of arbitrage signal:**
-- The monitor compares best bid/ask between two books and returns a `Signal` when the spread > `threshold` (example `0.0002` = 0.02%).
+
+- The monitor compares best bid/ask between two books and returns a `Signal` when the spread > `threshold` (example
+  `0.0002` = 0.02%).
 - You should include fees, slippage and transfer costs in production thresholds. The example assumes zero transfer cost.
 
 ```rust
@@ -185,7 +200,6 @@ pub struct ArbitrageSignal {
     pub timestamp: TimestampMS,
 }
 ```
-
 
 ## Full example: application wiring
 
@@ -215,7 +229,7 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
     ("bnb/usdt", 1000, 10_000),
 ];
 
-async fn get_client() -> Client{
+async fn get_client() -> Client {
     let client = DatabaseClient::default()
         .with_url("http://127.0.0.1:8123")
         .with_user("default")
@@ -315,6 +329,7 @@ async fn main() {
 ```
 
 **Deployment notes:**
+
 - Run with `RUST_LOG=info` to surface connector logs.
 - Monitor consumer lag (broadcast buffer) and ClickHouse insert latencies.
 - Consider splitting saver and processor into separate processes if CPU / memory becomes a bottleneck.
@@ -322,6 +337,7 @@ async fn main() {
 ---
 
 ## Quick checklist before production
+
 - Add error handling (avoid `.unwrap()` in long-running tasks).
 - Account for fees/slippage in arbitrage threshold.
 - Add backpressure or drop policy for the stream when DB is down.
