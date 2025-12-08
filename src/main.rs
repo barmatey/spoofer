@@ -5,6 +5,7 @@ mod shared;
 mod signal;
 mod trade;
 
+use clickhouse::Client;
 use crate::connector::{Event, StreamConnector};
 use crate::level2::{LevelUpdatedRepo, OrderBook};
 use crate::shared::utils::buffer_service::BufferService;
@@ -23,6 +24,18 @@ static TICKERS: [(&'static str, u32, u32); 4] = [
     ("bnb/usdt", 1000, 10_000),
 ];
 
+async fn get_client() -> Client{
+    let client = DatabaseClient::default()
+        .with_url("http://127.0.0.1:8123")
+        .with_user("default")
+        .with_password("")
+        .with_database("spoofer")
+        .build()
+        .await
+        .unwrap();
+    client
+}
+
 async fn stream(tx_events: broadcast::Sender<Event>) {
     let mut stream = StreamConnector::new()
         .exchanges(&[Exchange::Binance, Exchange::Kraken])
@@ -40,14 +53,7 @@ async fn stream(tx_events: broadcast::Sender<Event>) {
 }
 
 async fn saver(mut rx_events: broadcast::Receiver<Event>) {
-    let client = DatabaseClient::default()
-        .with_url("http://127.0.0.1:8123")
-        .with_user("default")
-        .with_password("")
-        .with_database("spoofer")
-        .build()
-        .await
-        .unwrap();
+    let client = get_client().await;
     let trade_saver = BufferService::new(TradeEventRepo::new(&client), 10_000);
     let level2saver = BufferService::new(LevelUpdatedRepo::new(&client), 50_000);
     loop {
@@ -60,14 +66,7 @@ async fn saver(mut rx_events: broadcast::Receiver<Event>) {
 }
 
 async fn processor(mut rx_events: broadcast::Receiver<Event>) {
-    let client = DatabaseClient::default()
-        .with_url("http://127.0.0.1:8123")
-        .with_user("default")
-        .with_password("")
-        .with_database("spoofer")
-        .build()
-        .await
-        .unwrap();
+    let client= get_client().await;
 
     let mut books = vec![];
     for (ticker, _, _) in TICKERS.iter() {
@@ -75,7 +74,7 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
         let ob2 = OrderBook::new(Exchange::Kraken, ticker, 10);
         books.push((ob1, ob2));
     }
-    let signal_saver = BufferService::new(ArbitrageSignalRepo::new(&client), 10000);
+    let signal_saver = BufferService::new(ArbitrageSignalRepo::new(&client), 10_000);
 
     loop {
         let event = rx_events.recv().await.unwrap();
@@ -96,7 +95,7 @@ async fn processor(mut rx_events: broadcast::Receiver<Event>) {
     }
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::main]
 async fn main() {
     let (tx_events, _) = broadcast::channel::<Event>(50_000);
 
