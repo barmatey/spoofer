@@ -82,7 +82,7 @@ impl<'a> ArbitrageMonitor<'a> {
                 price: sell_price,
             },
             profit_pct,
-            profit_abs: Some((sell_price - buy_price) as f32),
+            profit_abs: (sell_price - buy_price) as f32,
             timestamp: now_timestamp(),
         })
     }
@@ -153,7 +153,7 @@ mod tests {
 
         assert_eq!(sig.buy.exchange, Exchange::Binance);
         assert_eq!(sig.sell.exchange, Exchange::Kraken);
-        assert_eq!(sig.profit_abs, Some(3.0));
+        assert_eq!(sig.profit_abs,3.0);
         assert!((sig.profit_pct - 0.03).abs() < 1e-6);
     }
 
@@ -181,7 +181,7 @@ mod tests {
         let sig = mon.execute().expect("should detect arbitrage");
         assert_eq!(sig.buy.exchange, Exchange::Kraken);
         assert_eq!(sig.sell.exchange, Exchange::Binance);
-        assert_eq!(sig.profit_abs, Some(5.0));
+        assert_eq!(sig.profit_abs, 5.0);
         assert!((sig.profit_pct - 0.05).abs() < 1e-6);
     }
 

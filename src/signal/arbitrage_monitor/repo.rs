@@ -18,7 +18,7 @@ struct ArbitrageSignalRow {
     sell_price: u64,
 
     profit_pct: f32,
-    profit_abs: Option<f32>,
+    profit_abs: f32,
     timestamp: u64,
 }
 
@@ -91,7 +91,7 @@ pub async fn create_arbitrage_signals_table(
             sell_price UInt64,
 
             profit_pct Float32,
-            profit_abs Nullable(Float32),
+            profit_abs Float32,
 
             timestamp UInt64
         ) ENGINE = MergeTree()

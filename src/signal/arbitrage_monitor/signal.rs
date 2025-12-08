@@ -13,6 +13,6 @@ pub struct ArbitrageSignal {
     pub buy: ArbitrageLeg,
     pub sell: ArbitrageLeg,
     pub profit_pct: f32,
-    pub profit_abs: Option<f32>,
+    pub profit_abs: f32,
     pub timestamp: TimestampMS,
 }
