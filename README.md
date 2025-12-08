@@ -6,7 +6,7 @@ Short, practical guide to understand and use the Rust-based streaming + saver + 
 1. [Subscribe data stream](#subscribe-data-stream)
 2. [Save events](#save-events)
 3. [Check arbitrage opportunities](#check-arbitrage-opportunities)
-4. [Full example: application wiring](#full-example-application-wiring)
+4. [Full example](#full-example-application-wiring)
 
 ## Subscribe data stream
 
