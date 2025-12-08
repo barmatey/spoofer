@@ -3,21 +3,10 @@
 Short, practical guide to understand and use the Rust-based streaming + saver + arbitrage pipeline. Focused on user workflows and concrete code snippets so you can jump straight into the system.
 
 ## Table of Contents
-
 1. [Subscribe data stream](#subscribe-data-stream)
-    - [Event models](#event-models)
-    - [Subscription example](#subscription-example)
-    - [Notes / best practices](#notes--best-practices)
 2. [Save events](#save-events)
-    - [Saver worker snippet](#saver-worker-snippet)
-    - [Notes](#notes-1)
 3. [Check arbitrage opportunities](#check-arbitrage-opportunities)
-    - [How it works](#how-it-works)
-    - [Processor snippet](#processor-snippet)
-    - [Arbitrage signal model](#arbitrage-signal-model)
 4. [Full example: application wiring](#full-example-application-wiring)
-5. [Deployment notes](#deployment-notes)
-6. [Quick checklist before production](#quick-checklist-before-production)
 
 ## Subscribe data stream
 
